@@ -1,10 +1,54 @@
 ---
 title: "de novo Occular transcriptomes: results"
-output: html_notebook
+output: html_notebook 
 ---
 
-```{r}
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
+```
 
+
+
+```{r prep}
+library(tidyverse)
+```
+
+
+After our trancriptome, we reconstructed much of the refernece transcriptome, as well as novel transcripts, which we define as novel isoforms of known genes, and novel loci, which we define as transcripts whose complete sequence has not been previously annotated
+
+```{r overall_stats, message=FALSE, warning=FALSE}
+load('data/overall_stats.Rdata')
+overall_stats
+```
+
+Novel transcripts and loci can be further broken down into a protein coding vs non coding. Protein coding does not necesarilly mean that the protein encoded by a novel transcript is different than a protein encoded by existing transcripts.
+
+```{r tx_by_tissue}
+load('data/novel_tx_by_tissue.Rdata')
+ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
+  geom_bar(stat = 'identity',position = 'dodge') + 
+  ylab(label = 'number of novel transcripts')+
+  ggtitle(label = 'Constructed Novel Transcripts by Tissue')+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  ylab(label = 'number of novel loci')+
+  ggtitle(label = 'Constructed Novel loci by Tissue')+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+
+Next, using the contructed transcriptomes for each tisssue, we analyzed splicing patterns using the tool rMATs ; for each exon in each sample we calculatged the global psi, and clustered the resulting psis 
+
+
+```{r splicing_heatmap, fig.height=7.5, fig.width=5}
+library(ComplexHeatmap)
+library(viridis)
+load('data/splicing_heatmap.Rdata')
+splicing_heatmap
+```
+
+While the expression of some exons is ubiquitous across tissues, we can see clear regions in the heatmap that denote tissue specifc splicing
+
 
