@@ -22,13 +22,12 @@ load('data/overall_stats.Rdata')
 overall_stats
 ```
 
-Novel transcripts and loci can be further broken down into a protein coding vs non coding. Protein coding does not necesarilly mean that the protein encoded by a novel transcript is different than a protein encoded by existing transcripts.
-
+Novel transcripts are broken down into 3 catagories - noncoding, coding but no change in the coding region of the transcript, or a change in the ocidng region of the transcript and novel loci are described as  protein coding or non coding. 
 ```{r tx_by_tissue}
 load('data/novel_tx_by_tissue.Rdata')
 ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
   geom_bar(stat = 'identity',position = 'dodge') + 
-  ylab(label = 'number of novel transcripts')+
+  ylab(label = 'number of transcripts')+
   ggtitle(label = 'Constructed Novel Transcripts by Tissue')+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
@@ -39,7 +38,19 @@ ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
 
 ```
 
-Next, using the contructed transcriptomes for each tisssue, we analyzed splicing patterns using the tool rMATs ; for each exon in each sample we calculatged the global psi, and clustered the resulting psis 
+Novel transcripts are novel due to  one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. We then wanted to identify what biological process might be driving the formation of these novel exons
+3 major sources of transcriptional variation are alternative splicing, Alternative first exon usage, and alternative terminal exon usage(alternative polyadenylation).
+
+
+```{r classification_of_novel_exons}
+load('data/exon_classification.Rdata')
+total_exons_desc
+rna_proc_type
+```
+
+
+
+Next, using the contructed transcriptomes for each tisssue, we analyzed splicing patterns for both reference and novel exons 
 
 
 ```{r splicing_heatmap, fig.height=7.5, fig.width=5}
@@ -50,5 +61,39 @@ splicing_heatmap
 ```
 
 While the expression of some exons is ubiquitous across tissues, we can see clear regions in the heatmap that denote tissue specifc splicing
+
+
+
+To illustrate the utility of our denovo transcriptomes, we reanalyzed a data set...
+
+
+```{r}
+
+
+```
+
+
+
+Overlap variants onto novel exons 
+
+
+```{r}
+
+```
+
+
+
+Finally we provide a tool to visual our results via an online webapp
+
+```{r}
+
+```
+
+
+
+
+
+
+
 
 
