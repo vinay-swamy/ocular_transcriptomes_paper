@@ -1,9 +1,15 @@
 library(tidyverse)
 library(ComplexHeatmap)
 library(viridis)
-setwd('~/NIH/dev_eyeintegration_splicing/')
-psi_file <- 'data/rmats/all_tissues_psi.tsv'
-sample_file <- 'sampleTableDev.tsv'
+# setwd('~/NIH/dev_eyeintegration_splicing/')
+# psi_file <- 'data/rmats/all_tissues_psi.tsv'
+# sample_file <- 'sampleTableDev.tsv'
+args <- commandArgs(trailingOnly = T)
+wd <- args[1]
+psi_file <- args[2]
+sample_file <- args[3]
+outfile <- args[4]
+setwd(wd)
 psi_tab <- read_tsv(psi_file)
 colnames(psi_tab) <- str_split(colnamFes(psi_tab), '_psi') %>% sapply(function(x) x[[1]])
 sample_table <- read_tsv(sample_file, col_names = c('sample', 'run', 'paired', 'tissue', 'subtissue', 'origin')) %>% 
@@ -17,7 +23,7 @@ hm <- Heatmap(mat,col = viridis(100)  ,name = 'PSI', top_annotation = ha, show_r
               heatmap_height = unit(30,'cm'), heatmap_width = unit(20,'cm'))
 splicing_heatmap <- draw(hm)
 splicing_heatmap
-save(splicing_heatmap,file = '~/NIH/occular_transcriptomes_paper/data/splicing_heatmap.Rdata')
+save(splicing_heatmap,file = outfile)
 
 
 

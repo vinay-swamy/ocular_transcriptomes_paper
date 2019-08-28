@@ -5,11 +5,23 @@ sample_table_file <- 'sampleTableDev.tsv'
 pep_info_file <- 'data/seqs/pep_fasta_meta_info.tsv' 
 exon_classification_file <- 'rdata/novel_exon_classification.rdata'
 transdecoder_gff_file <- 'testing/transcripts.fa.transdecoder.genome.gff3'
+
+args <- commandArgs(trailingOnly = T)
+wd <- args[1]
+gtf_file <- args[2]
+sample_table_file <- args[3]
+pep_info_file <- args[4] 
+exon_classification_file <- args[5]
+transdecoder_gff_file <- args[6]
+tcons2mstrg_file <- args[7]
+outfile <- args[8]
+
+setwd(wd)
 load(exon_classification_file)
 cds_gff <- rtracklayer::readGFF(transdecoder_gff_file) %>% as.data.frame %>% mutate(ID=str_extract(ID,'TCONS_[0-9]+|ENSG[0-9]+'))
 pep_info <- read_tsv(pep_info_file, col_names = c('trdID', 'transcript_id','orf', 'type', 'length', 'score', 'misc')) %>% 
   mutate(transcript_id= str_split(transcript_id, '.p') %>% sapply(function(x) x[[1]]))
-tcons2mstrg <- 'data/misc/gfc_TCONS_to_st_MSTRG.tsv' %>% read_tsv 
+tcons2mstrg <-  read_tsv(tcons2mstrg_file)
 
 # now we need to classify these exons as either in the coding region of a transcript, 
 # a non coding region of a coding transcript
@@ -47,4 +59,4 @@ count_and_class_loci <- function(tx_list){
 novel_transcripts_by_tissue <- lapply(colnames(tcons2mstrg)[-1], count_and_class_tx) %>% bind_rows()
 novel_loci <- gtf %>% filter(grepl('TCONS', gene_name), type == 'transcript') %>% pull(transcript_id)
 novel_loci_by_tissue <- count_and_class_loci(novel_loci)
-save(novel_loci_by_tissue, novel_transcripts_by_tissue, file='~/NIH/occular_transcriptomes_paper/data/novel_tx_by_tissue.Rdata')
+save(novel_loci_by_tissue, novel_transcripts_by_tissue, file=outfile)
