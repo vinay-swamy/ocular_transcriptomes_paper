@@ -1,2 +1,3 @@
+working_dir: '/data/swamyvs/occular_transcriptomes_paper/'
 output_dir: '/data/swamyvs/eyeintegration_splicing/'
 sample_file: 'sampleTableV5.tsv'

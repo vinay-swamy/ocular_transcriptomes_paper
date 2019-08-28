@@ -4,7 +4,9 @@ output: html_notebook
 ---
 
 ```{r setup}
-knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+#knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+#knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
+knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
 knitr::opts_chunk$set(echo = F, message = F, warning = F)
 ```
 
@@ -12,19 +14,20 @@ knitr::opts_chunk$set(echo = F, message = F, warning = F)
 
 ```{r prep}
 library(tidyverse)
+library(DT)
 ```
 
 
 After our trancriptome, we reconstructed much of the refernece transcriptome, as well as novel transcripts, which we define as novel isoforms of known genes, and novel loci, which we define as transcripts whose complete sequence has not been previously annotated
 
 ```{r overall_stats, message=FALSE, warning=FALSE}
-load('data/overall_stats.Rdata')
-overall_stats
+load('clean_data/overall_stats.Rdata')
+overall_stats %>% datatable
 ```
 
 Novel transcripts are broken down into 3 catagories - noncoding, coding but no change in the coding region of the transcript, or a change in the ocidng region of the transcript and novel loci are described as  protein coding or non coding. 
 ```{r tx_by_tissue}
-load('data/novel_tx_by_tissue.Rdata')
+load('clean_data/novel_tx_by_tissue.Rdata')
 ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
   geom_bar(stat = 'identity',position = 'dodge') + 
   ylab(label = 'number of transcripts')+
@@ -43,9 +46,9 @@ Novel transcripts are novel due to  one or more novel/unannotated exon. We can  
 
 
 ```{r classification_of_novel_exons}
-load('data/exon_classification.Rdata')
-total_exons_desc
-rna_proc_type
+load('clean_data/exon_classification.Rdata')
+total_exons_desc %>% datatable
+rna_proc_type %>% datatable
 ```
 
 
@@ -56,7 +59,7 @@ Next, using the contructed transcriptomes for each tisssue, we analyzed splicing
 ```{r splicing_heatmap, fig.height=7.5, fig.width=5}
 library(ComplexHeatmap)
 library(viridis)
-load('data/splicing_heatmap.Rdata')
+load('clean_data/splicing_heatmap.Rdata')
 splicing_heatmap
 ```
 
