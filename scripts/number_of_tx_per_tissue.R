@@ -29,7 +29,7 @@ tcons2mstrg <-  read_tsv(tcons2mstrg_file)
 gtf <- rtracklayer::readGFF(gtf_file) %>% mutate(is.pc= transcript_id %in% cds_gff$ID)
 gtf_exons <- filter(gtf, type == 'exon') %>% select(seqid, strand, start, end , transcript_id, is.pc)
 novel_exons_txid <- inner_join(novel_exons_TSES, gtf_exons)
-cds_df <- cds_gff %>% select(seqid, strand, start, end) %>% mutate(is.CDS=T)
+cds_df <- cds_gff %>% filter(type == 'CDS') %>% select(seqid, strand, start, end) %>% distinct %>% mutate(is.CDS=T)
 novel_exons_PC <- novel_exons_txid %>% left_join(cds_df) %>% mutate(is.CDS=replace_na(is.CDS, F))
 
 

@@ -7,7 +7,7 @@ output_dir=config['output_dir']
 sample_file=output_dir + config['sample_file']
 gtf_file=output_dir + 'data/gtfs/all_tissues.combined.gtf'
 rule all:
-    input: 'results_v1.html'
+    input: 'notebooks/results_v1.html'
 
 
 rule overall_stats:
@@ -53,7 +53,7 @@ rule knit_notebooks:
     working_dir+'clean_data/exon_classification.Rdata',\
     working_dir+'clean_data/novel_tx_by_tissue.Rdata',\
     working_dir+'clean_data/splicing_heatmap.Rdata'
-    output: 'results_v1.html'
+    output: 'notebooks/results_v1.html'
     shell:
         '''
         module load R
