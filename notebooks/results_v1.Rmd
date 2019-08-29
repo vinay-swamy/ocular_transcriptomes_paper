@@ -3,7 +3,7 @@ title: "de novo Occular transcriptomes: results"
 output: html_notebook 
 ---
 
-```{r setup}
+```{r setup, echo=F}
 #knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
 #knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
 knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
@@ -26,7 +26,7 @@ overall_stats %>% datatable
 ```
 
 Novel transcripts are broken down into 3 catagories - noncoding, coding but no change in the coding region of the transcript, or a change in the ocidng region of the transcript and novel loci are described as  protein coding or non coding. 
-```{r tx_by_tissue}
+```{r tx_by_tissue, fig.height= 3.5, fig.width=10 }
 load('clean_data/novel_tx_by_tissue.Rdata')
 ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
   geom_bar(stat = 'identity',position = 'dodge') + 
@@ -45,10 +45,10 @@ Novel transcripts are novel due to  one or more novel/unannotated exon. We can  
 3 major sources of transcriptional variation are alternative splicing, Alternative first exon usage, and alternative terminal exon usage(alternative polyadenylation).
 
 
-```{r classification_of_novel_exons}
+```{r classification_of_novel_exons, fig.width=7}
 load('clean_data/exon_classification.Rdata')
 total_exons_desc %>% datatable
-rna_proc_type %>% datatable
+rna_proc_type %>% mutate(count=as.numeric(count)) %>% datatable
 ```
 
 
@@ -56,7 +56,7 @@ rna_proc_type %>% datatable
 Next, using the contructed transcriptomes for each tisssue, we analyzed splicing patterns for both reference and novel exons 
 
 
-```{r splicing_heatmap, fig.height=7.5, fig.width=5}
+```{r splicing_heatmap, fig.height=4, fig.width=8}
 library(ComplexHeatmap)
 library(viridis)
 load('clean_data/splicing_heatmap.Rdata')
