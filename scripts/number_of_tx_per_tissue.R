@@ -57,6 +57,6 @@ count_and_class_loci <- function(tx_list){
 
 
 novel_transcripts_by_tissue <- lapply(colnames(tcons2mstrg)[-1], count_and_class_tx) %>% bind_rows()
-novel_loci <- gtf %>% filter(grepl('TCONS', gene_name), type == 'transcript') %>% pull(transcript_id)
+novel_loci <- novel_loci_distinct$transcript_id
 novel_loci_by_tissue <- count_and_class_loci(novel_loci)
 save(novel_loci_by_tissue, novel_transcripts_by_tissue, file=outfile)

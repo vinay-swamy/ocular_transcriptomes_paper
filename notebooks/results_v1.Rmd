@@ -25,7 +25,7 @@ load('clean_data/overall_stats.Rdata')
 overall_stats %>% datatable
 ```
 
-Novel transcripts are broken down into 3 catagories - noncoding, coding but no change in the coding region of the transcript, or a change in the ocidng region of the transcript and novel loci are described as  protein coding or non coding. 
+Novel transcripts are broken down into 3 catagories - noncoding, protein coding but no change in the coding region of the transcript, or a change in the coding region of the transcripts. Novel Loci can be broken down into  coding or non coding. 
 ```{r tx_by_tissue, fig.height= 3.5, fig.width=10 }
 load('clean_data/novel_tx_by_tissue.Rdata')
 ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
@@ -41,7 +41,7 @@ ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
 
 ```
 
-Novel transcripts are novel due to  one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. We then wanted to identify what biological process might be driving the formation of these novel exons
+Novel transcripts are novel due to one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. We then wanted to identify what biological process might be driving the formation of these novel exons
 3 major sources of transcriptional variation are alternative splicing, Alternative first exon usage, and alternative terminal exon usage(alternative polyadenylation).
 
 
