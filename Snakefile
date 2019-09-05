@@ -11,7 +11,7 @@ rule all:
 
 
 rule overall_stats:
-    input: gtf_file
+    input: gtf_file, output_dir + 'rdata/novel_exon_classification.rdata'
     output:working_dir+'clean_data/overall_stats.Rdata'
     shell:
         '''

@@ -5,32 +5,21 @@ library(tidyverse)
 args <- commandArgs(trailingOnly = T)
 wd <- args[1]
 gtf_file <- args[2]
-sample_table_file <- args[3]
-outfile <- args[4]
+exon_classifcation_file <- args[3]
+sample_table_file <- args[4]
+outfile <- args[5]
 setwd(wd)
+load(exon_classifcation_file)
 gtf <- rtracklayer::readGFF(gtf_file)
 sample_table <- read_tsv(sample_table_file, col_names = c('sample', 'run', 'paired', 'tissue', 'subtissue', 'origin'))
-overall_stats <- tibble(description=c('number of tissues', 'number of samples', 'number of novel transcripts', 'number of novel loci'),
+overall_stats <- tibble(description=c('number of tissues', 'number of samples','number of transcripts constructed',
+                                      'number of novel transcripts','number of novel loci'),
        value=c(sample_table %>% pull(subtissue) %>% unique %>% length ,
-               sample_table %>% pull(sample) %>% unique %>% length , 
-               gtf %>% filter(!grepl('TCONS', gene_name), type == 'transcript', grepl('MSTRG', oId)) %>% nrow , 
-               gtf %>% filter(grepl('TCONS', gene_name), type == 'transcript') %>% nrow
+               sample_table %>% pull(sample) %>% unique %>% length ,
+               gtf %>% filter(type == 'transcript')%>% nrow ,
+               gtf %>% filter(!grepl('TCONS', gene_name), type == 'transcript', grepl('MSTRG', oId)) %>% nrow ,
+               novel_loci_distinct %>% filter(type == 'transcript') %>% nrow
+               #gtf %>% filter(grepl('TCONS', gene_name), type == 'transcript') %>% nrow
               )
       )
 save(overall_stats, file=outfile)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
