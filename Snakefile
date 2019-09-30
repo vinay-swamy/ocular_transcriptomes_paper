@@ -9,6 +9,20 @@ gtf_file=output_dir + 'data/gtfs/all_tissues.combined.gtf'
 rule all:
     input: 'notebooks/results_v1.html'
 
+rule transcriptome_pipeline_strategies:
+    input:  output_dir + 'data/gtfs/raw_tissue_gtfs/RPE_Fetal.Tissue_st.gtf'
+    output: 'clean_data/lib_sizes.tab'
+    shell:
+        '''
+        bash scripts/count_stats_from_files.sh
+        module load gffcompare
+        gffcompare -r {output_dir}/ref/gencode_comp_ano.gtf -o /tmp/tissue {input}
+        module load
+        Rscript scripts/transcriptome_pipe_line_stats.R
+
+
+        '''
+
 
 rule overall_stats:
     input: gtf_file, output_dir + 'rdata/novel_exon_classification.rdata'

@@ -1,6 +1,10 @@
 ---
 title: "de novo Occular transcriptomes: results"
-output: html_notebook 
+output: 
+  html_notebook:
+      default
+  github_document:
+      default
 ---
 
 ```{r setup, echo=F}
@@ -17,15 +21,20 @@ library(tidyverse)
 library(DT)
 ```
 
-
-After our trancriptome, we reconstructed much of the refernece transcriptome, as well as novel transcripts, which we define as novel isoforms of known genes, and novel loci, which we define as transcripts whose complete sequence has not been previously annotated
+# Transcriptome pipeline metrics. 
 
 ```{r overall_stats, message=FALSE, warning=FALSE}
 load('clean_data/overall_stats.Rdata')
 overall_stats %>% datatable
 ```
+We constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, then merge gtfs for each sample by subtissue, using a TPM cutoff of XXX in each tissue. We then evaluated this using our salmon expression metrics. We found that transcript contruction is largely similar between subtissues, ie in the brain, which gives some measure of sanity to our results.
 
-Novel transcripts are broken down into 3 catagories - noncoding, protein coding but no change in the coding region of the transcript, or a change in the coding region of the transcripts. Novel Loci can be broken down into  coding or non coding. 
+
+
+# Novel Transcripts and Novel Loci
+
+
+We define Novel transcripts as a novel variation of a known gene. Novel transcripts contain 2 major classes: Modification of a previous exons to create novel, unannotated exons, or a rearrangment of known exons in a novel arrangment. Novel transcripts are also broken down into 3 catagories - noncoding, protein coding but no change in the coding region of the transcript, or a change in the coding region of the transcripts.
 ```{r tx_by_tissue, fig.height= 3.5, fig.width=10 }
 load('clean_data/novel_tx_by_tissue.Rdata')
 ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
@@ -40,8 +49,10 @@ ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+We define novel loci as as entirely novel transcribed regions of the genome, which can also be broken down into protein vs non protein coding. Many of the novel transcripts we find contain no protein coding change(%)
 
-Novel transcripts are novel due to one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. We then wanted to identify what biological process might be driving the formation of these novel exons
+Novel transcripts are novel due to one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. For each exon we can try to identify the biological process that drives the inclusion of each exon into transcripts - alternative promoter usage(APU), alternative splicing(AS), or alternative polyadenylation(APA). APU leads to inclusion of novel first exons, AS leads to novel exons in the body of a transcript, and APA leads to novel terminal exons.
+We then wanted to identify what biological process might be driving the formation of these novel exons
 3 major sources of transcriptional variation are alternative splicing, Alternative first exon usage, and alternative terminal exon usage(alternative polyadenylation).
 
 

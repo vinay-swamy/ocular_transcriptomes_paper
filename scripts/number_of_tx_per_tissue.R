@@ -31,7 +31,7 @@ gtf_exons <- filter(gtf, type == 'exon') %>% select(seqid, strand, start, end , 
 novel_exons_txid <- inner_join(novel_exons_TSES, gtf_exons)
 cds_df <- cds_gff %>% filter(type == 'CDS') %>% select(seqid, strand, start, end) %>% distinct %>% mutate(is.CDS=T)
 novel_exons_PC <- novel_exons_txid %>% left_join(cds_df) %>% mutate(is.CDS=replace_na(is.CDS, F))
-
+# a hacky way to count cds exons
 
 
 count_and_class_tx <- function(tissue){
