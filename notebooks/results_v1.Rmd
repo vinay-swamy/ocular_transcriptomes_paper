@@ -27,7 +27,7 @@ library(DT)
 load('clean_data/overall_stats.Rdata')
 overall_stats %>% datatable
 ```
-We constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, then merge gtfs for each sample by subtissue, using a TPM cutoff of XXX in each tissue. We then evaluated this using our salmon expression metrics. We found that transcript contruction is largely similar between subtissues, ie in the brain, which gives some measure of sanity to our results.
+We constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, then merge gtfs for each sample by subtissue, using a TPM cutoff of of at least 1 TPM in halfddd in each tissue. We then evaluated this using our salmon expression metrics. We found that transcript contruction is largely similar between subtissues, ie in the brain, which gives some measure of sanity to our results.
 
 
 
@@ -44,8 +44,8 @@ ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
   geom_bar(stat = 'identity', position = 'dodge') + 
-  ylab(label = 'number of novel loci')+
-  ggtitle(label = 'Constructed Novel loci by Tissue')+
+  ylab(label = 'number of novel loci') +
+  ggtitle(label = 'Constructed Novel loci by Tissue') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
@@ -71,7 +71,9 @@ Next, using the contructed transcriptomes for each tisssue, we analyzed splicing
 library(ComplexHeatmap)
 library(viridis)
 load('clean_data/splicing_heatmap.Rdata')
+
 splicing_heatmap
+
 ```
 
 While the expression of some exons is ubiquitous across tissues, we can see clear regions in the heatmap that denote tissue specifc splicing
