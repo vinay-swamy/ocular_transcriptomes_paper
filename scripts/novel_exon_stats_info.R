@@ -1,5 +1,7 @@
 library(tidyverse)
-
+library(RBedtools)
+args <- c('~/NIH/occular_transcriptomes_paper/', '~/NIH/occular_transcriptomes_paper/data/all_tissues.combined_V1.Rdata',
+          '~/NIH/occular_transcriptomes_paper/all_tissues.combined.gtf')
 args <- commandArgs(trailingOnly = T)
 wd <- args[1]
 exon_classifcation_file <- args[2]
@@ -8,6 +10,7 @@ outfile <- args[4]
 load(exon_classifcation_file)
 setwd(wd)
 gtf <- rtracklayer::readGFF(gtf_file)
+
 novel_exon_bed <- novel_exons_TSES %>% mutate(seqid=as.character(seqid), score=999) %>%
   select(seqid, start, end, id, score, strand)
 ref_exon_bed <- all_exons %>% mutate(score= 999, seqid=as.character(seqid)) %>%
