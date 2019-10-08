@@ -23,35 +23,44 @@ rule transcriptome_pipeline_strategies:
 
         '''
 
+rule summarizeBuildResults:
+    input:exon_class= output_dir + 'data/rdata/novel_exon_classification.Rdata', gff3='data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3', tc2mstrg='data/misc/TCONS2MSTRG.tsv'
+    output:color_df='clean_data/tissue_to_colors.Rdata', plotting_data='clean_data/buildResultsSummary.Rdata'
+    shell:
+        '''
+        module load R
+        Rscript scripts/summarize_build_results.R {working_dir} {input.exon_class} {gtf_file} {sample_file} {input.gff3} {input.tcons2mstrg} {output.color_df} {output.plotting_data}
+        '''
 
-rule overall_stats:
-    input: gtf_file, output_dir + 'rdata/novel_exon_classification.rdata'
-    output:working_dir+'clean_data/overall_stats.Rdata'
-    shell:
-        '''
-        module load R
-        Rscript scripts/overall_stats.R {output_dir} {input} {sample_file} {output}
-        '''
 
-rule novel_exon_catagories:
-    input: output_dir + 'rdata/novel_exon_classification.rdata', gtf_file
-    output: working_dir+'clean_data/exon_classification.Rdata'
-    shell:
-        '''
-        module load R
-        Rscript scripts/novel_exon_stats_info.R  {output_dir} {input} {output}
-        '''
-rule number_of_tx_per_tissue:
-    input:gtf_file, sample_file, output_dir+'data/seqs/pep_fasta_meta_info.tsv',\
-    output_dir+'rdata/novel_exon_classification.rdata',\
-    output_dir+'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3',\
-    output_dir+'data/misc/gfc_TCONS_to_st_MSTRG.tsv'
-    output:working_dir+'clean_data/novel_tx_by_tissue.Rdata'
-    shell:
-        '''
-        module load R
-        Rscript scripts/number_of_tx_per_tissue.R {output_dir} {input} {output}
-        '''
+# rule overall_stats:
+#     input: gtf_file, output_dir + 'rdata/novel_exon_classification.rdata'
+#     output:working_dir+'clean_data/overall_stats.Rdata'
+#     shell:
+#         '''
+#         module load R
+#         Rscript scripts/overall_stats.R {output_dir} {input} {sample_file} {output}
+#         '''
+#
+# rule novel_exon_catagories:
+#     input: output_dir + 'rdata/novel_exon_classification.rdata', gtf_file
+#     output: working_dir+'clean_data/exon_classification.Rdata'
+#     shell:
+#         '''
+#         module load R
+#         Rscript scripts/novel_exon_stats_info.R  {output_dir} {input} {output}
+#         '''
+# rule number_of_tx_per_tissue:
+#     input:gtf_file, sample_file, output_dir+'data/seqs/pep_fasta_meta_info.tsv',\
+#     output_dir+'rdata/novel_exon_classification.rdata',\
+#     output_dir+'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3',\
+#     output_dir+'data/misc/gfc_TCONS_to_st_MSTRG.tsv'
+#     output:working_dir+'clean_data/novel_tx_by_tissue.Rdata'
+#     shell:
+#         '''
+#         module load R
+#         Rscript scripts/number_of_tx_per_tissue.R {output_dir} {input} {output}
+#        '''
 
 rule splicing_hm:
     input:output_dir+'data/rmats/all_tissues_psi.tsv', sample_file
@@ -63,10 +72,9 @@ rule splicing_hm:
         '''
 
 rule knit_notebooks:
-    input:working_dir+'clean_data/overall_stats.Rdata',\
-    working_dir+'clean_data/exon_classification.Rdata',\
-    working_dir+'clean_data/novel_tx_by_tissue.Rdata',\
-    working_dir+'clean_data/splicing_heatmap.Rdata'
+    input:working_dir+'clean_data/buildResultsSummary.Rdata', working_dir+'clean_data/splicing_heatmap.Rdata'
+    #working_dir+'clean_data/exon_classification.Rdata',\
+    #working_dir+'clean_data/novel_tx_by_tissue.Rdata',\
     output: 'notebooks/results_v1.html'
     shell:
         '''
