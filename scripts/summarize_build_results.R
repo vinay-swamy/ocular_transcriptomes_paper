@@ -1,7 +1,7 @@
 library(tidyverse)
 library(RBedtools)
 library(RColorBrewer)
-args <- c('~/NIH/occular_transcriptomes_paper/', '~/NIH/occular_transcriptomes_paper/data/V1_exon_classification_data.Rdata',
+args <- c('~/NIH/occular_transcriptomes_paper/', '~/NIH/occular_transcriptomes_paper/clean_data/V1_exon_classification_data.Rdata',
           '~/NIH/occular_transcriptomes_paper/all_tissues.combined.gtf', '~/NIH/eyeintegration_splicing/sampleTableV6.tsv',
           '~/NIH/eyeintegration_splicing/dl_data/all_tissues.combined_transdecoderCDS.gff3.gz',
           '~/NIH/occular_transcriptomes_paper/gfc_TCONS_to_st_MSTRG.tsv', 
@@ -62,7 +62,10 @@ novel_loci_per_tissue <- lapply(subtissues, function(i) tc2m_novel_loci %>%
                                 {tibble(subtissue=i, num_pc=sum(.$`is.PC`), num_nc=nrow(.) - sum(.$`is.PC`) )}  ) %>%
     bind_rows() %>% 
     left_join( sample_table %>% select(subtissue, body_location) %>% distinct ) %>% group_by(body_location) %>% 
-    summarise(number_noncoding_tx=mean(num_nc), number_pc_tx=mean(num_pc)) %>% 
+    summarise(noncoding_tx=mean(num_nc), pc_tx=mean(num_pc)) %>% 
+    mutate(body_location=replace(body_location, body_location == 'Body', 'Body(avg)'),
+           body_location=replace(body_location, body_location == 'Brain', 'Brain(avg)')
+    ) %>% 
     gather(transcript_type, counts, -body_location) %>% 
     left_join(tissue_color_mapping_df)
 # color_list<- novel_loci_per_tissue$color
@@ -83,7 +86,7 @@ novel_loci_per_tissue <- lapply(subtissues, function(i) tc2m_novel_loci %>%
 #----
 library(UpSetR)
 novel_exons_tx_added <- novel_exons_TSES %>% 
-    inner_join(gtf %>% select(seqid, strand, start,end ,transcript_id)) %>% 
+    inner_join(gtf %>% select(seqid, strand, start,end ,transcript_id, gene_name)) %>% 
     mutate(is.PC= transcript_id %in% gff3$ID)
 cds_bed <- gff3 %>% filter(type == 'CDS') %>% 
     select(seqid, strand, start, end, transcript_id=ID) %>% 
@@ -98,7 +101,7 @@ intersect <-  cds_bed %>% from_data_frame %>%
     to_data_frame()
 
 
- filter(intersect, X4==X10) %>% select(X1, X6, X2, X3) %>% distinct %>% nrow 
+filter(intersect, X4==X10, X13 > 1) %>% select(X1, X6, X2, X3) %>% distinct %>% nrow 
 novel_exons_ano <- filter(intersect, X4==X10) %>% select(transcript_id=X4, seqid=X1, strand=X6, start=X2, end=X3) %>% 
     mutate(is.CDS=T) %>% distinct %>% left_join(novel_exons_tx_added,.) %>%
     mutate(is.CDS=replace_na(is.CDS, F))# make sure exons match the transcript they are found in 
@@ -109,15 +112,25 @@ novel_exon_location_analysis <- list(protein_coding=filter(novel_exons_ano, is.P
 
 
 
-
-
-
-
 save(novel_transcripts_per_tissue, novel_loci_per_tissue, novel_exon_location_analysis, file=data_to_plot)
 
-
-
-
+# 
+# 
+# 
+# pc_dist <- reduce(novel_exon_location_analysis, setdiff)
+# nc_dist <- reduce(novel_exon_location_analysis[c('non_coding', 'UTR_change', 'protein_coding')], setdiff)
+# utr_dist <- reduce(novel_exon_location_analysis[c('UTR_change','non_coding',  'protein_coding')], setdiff)
+# 
+# 
+# changing_exons <- setdiff(unlist(novel_exon_location_analysis), c(pc_dist, nc_dist, utr_dist))
+# eye_tissues <- c('Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue', 
+#                  'Retina_Adult.Tissue', 'Retina_Fetal.Tissue', 
+#                  'RPE_Adult.Tissue', 'RPE_Fetal.Tissue')
+# eye_tx <- tcons2mstrg %>% select(transcript_id, eye_tissues) %>% filter( rowSums(apply(.,2,is.na))<6) %>% pull(transcript_id)
+# 
+# filter(novel_exons_tx_added,transcript_id %in% eye_tx, id %in% changing_exons) %>% group_by(gene_name) %>% 
+#     summarise(count=n()) %>% filter(count>1) %>% 
+#     pull(gene_name ) %>% unique() %>% clipr::write_clip()
 
 
 
