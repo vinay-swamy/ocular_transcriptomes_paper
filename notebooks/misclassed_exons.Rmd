@@ -1,0 +1,86 @@
+---
+title: "Am I missing something in my exon classification"
+output: html_notebook
+---
+
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/NIH/')
+```
+
+```{r}
+library(tidyverse)
+
+tcons2mstrg <- read_tsv('~/NIH/eyeintegration_splicing/dl_data/gfc_TCONS_to_st_MSTRG.tsv.gz')
+load('~/NIH/occular_transcriptomes_paper/clean_data/V1_exon_classification_data.Rdata')
+psi_tab <- read_tsv('~/NIH/eyeintegration_splicing/dl_data/all_tissues_psi.tsv.gz')
+colnames(psi_tab) <- str_remove(colnames(psi_tab), '_psi')
+sample_table <- read_tsv('eyeintegration_splicing/sampleTableV6.tsv') %>% filter(sample %in% colnames(psi_tab))
+full_gtf <- rtracklayer::readGFF('~/NIH/occular_transcriptomes_paper/all_tissues.combined.gtf')
+```
+
+There are exons that I am classifying as alternatively spliced, that rMATs is not detecting, beyond them being FE/TE's
+
+```{r}
+garbage_cols <- c("score" ,"phase", "class_code",  "contained_in","cmp_ref","cmp_ref_gene") 
+last_exons <- full_gtf %>% 
+    filter(type == "exon") %>% 
+    select(seqid, strand, start, end, transcript_id) %>% 
+    group_by(transcript_id) %>% 
+    summarise(seqid=last(seqid), strand=last(strand), start=max(start), end=max(end)) %>%
+    mutate(is.last=T, type ='exon')
+single_exons <- full_gtf %>% 
+    filter(type =="exon") %>% 
+    select(seqid, strand, start, end, transcript_id) %>% 
+    group_by(transcript_id) %>% summarise(count=n()) %>% 
+    filter(count == 1) %>% 
+    mutate(is.single=T, type= 'exon', count=NULL)
+full_gtf  <- left_join(full_gtf, last_exons) %>% 
+    left_join(single_exons) %>%
+    mutate(is.last=replace_na(is.last, F),is.single=replace_na(is.single, F), is.first = exon_number == 1) %>%
+    select(-garbage_cols)
+
+
+
+```
+
+
+
+
+
+
+```{r}
+s_tissue <- 'Retina_Fetal.Tissue'
+ctab <- tcons2mstrg %>% select(transcript_id, !!s_tissue) %>% filter(!is.na(.[,s_tissue]))
+exons_in_tissue <- full_gtf %>% filter(transcript_id %in% ctab$transcript_id) %>% 
+    select(seqid, strand, start, end) %>% distinct
+novel_exons_in_tissue_splicing <- novel_exons_TSES %>% inner_join(exons_in_tissue) %>% 
+    filter(!nv_type_rc %in% c( 'novel_TES', 'novel_TSS'))
+psi_tissue <- filter(sample_table, subtissue == s_tissue) %>% pull(sample) %>% 
+    {select(psi_tab, seqid, strand, start, end, .)} %>% mutate( start=start+1) %>% 
+    inner_join(novel_exons_in_tissue_splicing,.)
+meta_cols <- colnames(novel_exons_in_tissue_splicing)
+psi_only <- psi_tissue %>% select(-meta_cols)
+not_det <- psi_only %>% apply(2, is.na) %>% {rowSums(.) == ncol(.) }
+exons_not_det <- psi_tissue %>% filter(not_det) %>% select(meta_cols) %>% inner_join(novel_exons_TSES) %>% inner_join(full_gtf) 
+```
+
+
+```{r}
+exons_not_det %>% select(meta_cols, is.single, is.first, is.last) %>% distinct %>% select(contains('is.')) %>% apply(2,sum, na.rm=T)
+
+inp <- exons_not_det %>% filter(is.last) %>% pull(gene_name) %>% 
+    {filter(full_gtf, gene_name %in% ., type == "transcript")} %>% 
+    group_by(gene_name) %>% summarise(count=n())
+
+exons_not_det %>% filter(is.last, gene_name == 'GCGR')
+filter(full_gtf, start == 81813016)
+filter(full_gtf, transcript_id == 'TCONS_00102889')
+exons_not_det %>% select(meta_cols) %>% distinct %>% mutate(len=end-start) %>% {quantile(.$len, seq(0,1,.1))}
+
+```
+
+
+
+
+

@@ -1,0 +1,175 @@
+---
+title: " Novel loci in the developing Eye"
+output: html_notebook
+---
+
+
+Are there any novel transcripts that are differentiall expressed in the fetal eye? lets find out 
+
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/NIH/')
+```
+
+
+```{r}
+library(tidyverse)
+sample_table <- read_tsv('eyeintegration_splicing/sampleTableV6.tsv')
+load('occular_transcriptomes_paper/clean_data/core_tight_david.Rdata')
+load('occular_transcriptomes_paper/clean_data/fetal_retina_quant.Rdata') # i saved the quant as k
+load('occular_transcriptomes_paper/clean_data/fetal_retina_eiad_gene_quant.Rdata')
+tcons2mstrg <- read_tsv('eyeintegration_splicing/dl_data/gfc_TCONS_to_st_MSTRG.tsv.gz')
+gtf <- rtracklayer::readGFF('eyeintegration_splicing/all_tissues.combined.gtf')
+gff3 <- rtracklayer::readGFF('eyeintegration_splicing/dl_data/all_tissues.combined_transdecoderCDS.gff3.gz') %>% 
+  as_tibble  %>% mutate(ID=str_extract(ID,'TCONS_[0-9]+|ENSG[0-9]+'))
+```
+
+```{r}
+samples <- gene_quant$sample_accession
+fetal_gene_quant <- gene_quant[,-1] %>% t() %>% as.data.frame %>% mutate(gene_name=rownames(.)) %>% 
+    select(gene_name, everything())
+colnames(fetal_gene_quant) <- c('gene_name', samples)
+
+samples <- k$sample_accession
+fetal_tx_quant <- k[,-1] %>% t() %>% as.data.frame %>%
+    mutate(transcript_id=str_extract(rownames(.), '\\((.*?)\\)') %>% str_remove('\\(') %>% str_remove('\\)'), 
+           gene_name=str_remove(rownames(.), '\\((.*?)\\)')) %>% select(transcript_id,gene_name, everything())
+colnames(fetal_tx_quant) <- c('transcript_id','gene_name', samples)
+
+
+core_tight_fetal <- filter(core_tight_2019, sample_accession %in% colnames(fetal_gene_quant)) %>% 
+    select(colnames(.)[1:6], study_accession) %>%
+    mutate(Sub_Tissue= ifelse(Sub_Tissue =="Retina - Fetal Tissue", 'Retina_Fetal.Tissue', 'Retina_Organoid'),
+           Age_Days=as.numeric(Age_Days))
+colnames(core_tight_fetal) <- c('sample', 'tissue', 'subtissue', 'origin', 'age', 'kept', 'study_accession')
+fetal_tissue_samples <- core_tight_fetal %>% filter(subtissue == 'Retina_Fetal.Tissue', kept=='Kept') %>% arrange(age)
+organoid_samples <- core_tight_fetal %>% filter(subtissue == 'Retina_Organoid', kept=='Kept') %>% arrange(age)
+```
+
+
+I'm going to start with the fetal Retina tissue, looking just for differences between early, middle and lat stages
+
+```{r}
+library(limma)
+library(edgeR)
+#gdata::keep(fetal_tissue_samples, fetal_gene_quant)
+sample_design <- fetal_tissue_samples %>% select(sample, age, study_accession) %>%
+    mutate(stage= case_when(age <=84 ~ 'early',
+                            age >84 & age<119 ~ 'mid', 
+                            age >=119 ~ 'late'))
+table(sample_design$stage)
+sample_design %>% group_by(stage) %>% summarise(range=max(age) - min(age))
+
+gene_names <- fetal_gene_quant$gene_name
+exp_mat <- fetal_gene_quant %>% .[,sample_design$sample] 
+rownames(exp_mat) <- gene_names
+keep <- rowSums(exp_mat) > 5*ncol(exp_mat)
+exp_mat <- exp_mat[keep,]
+nrow(exp_mat)
+table(sample_design$study_accession)
+dge <- calcNormFactors(DGEList(exp_mat))
+stage <- factor(sample_design$stage)
+study <- factor(sample_design$study_accession)
+design_mat <- model.matrix(~0 + study + stage)
+colnames(design_mat) <-colnames(design_mat) %>% str_remove('study|stage')
+voom_dge <- voom(dge, design = design_mat)
+design.pairs <-function(levels) {
+    n <- length(levels)
+    design <- matrix(0,n,choose(n,2))
+    rownames(design) <- levels
+    colnames(design) <- 1:choose(n,2)
+    k <- 0
+    for (i in 1:(n-1))
+      for (j in (i+1):n) {
+        k <- k+1
+        design[i,k] <- 1
+        design[j,k] <- -1
+        colnames(design)[k] <- paste(levels[i],"-",levels[j],sep="")
+      }
+    design
+ }
+
+cont_mat <- design.pairs(c(levels(stage),levels(study))) %>% .[,grepl('early|mid|late', colnames(.))]
+model_fitted <-lmFit(voom_dge, design = design_mat)
+cont_mat <- cont_mat[colnames(model_fitted),]
+model_results <- contrasts.fit(model_fitted, cont_mat) %>% eBayes
+colnames(model_results)
+targets <- c("early-late","early-mid", 'late-mid')
+upregulated <- list(early=c(), mid=c(), late=c())
+limma_de <- list()
+
+for( i in c("early-late","early-mid", 'late-mid')){
+    conds <- str_split(i, '-')[[1]]
+    top <- conds[1]
+    bottom <- conds[2]
+    df <-  topTable(model_results, adjust.method = 'fdr', coef = i, number = 30000000, p.value = .05) %>% 
+       as.data.frame %>% mutate(gene_name=rownames(.)) %>% 
+       filter(grepl('TCONS', gene_name), gene_name %in% retina_fetal_exp)
+    upregulated[[top]] <- c(upregulated[[top]],
+                            df %>% filter(logFC >0) %>% arrange(desc(logFC)) %>%  pull(gene_name))
+    upregulated[[bottom]] <- c(upregulated[[bottom]], 
+                               df %>% filter(logFC <0) %>% arrange(desc(abs(logFC))) %>% pull(gene_name) )
+    limma_de[[i]] <- df
+}
+
+shared_upregulated <- reduce(upregulated, intersect)  
+distinct_upregulated <- combine(upregulated) %>% unique 
+
+#fetal_gene_quant[,c('gene_name', sample_design$sample)] %>% View
+
+```
+
+Found some differentially expressed transcripts, lets see what they look like
+
+```{r,fig.width=7, fig.height=12}
+#knitr::opts_chunk$get("fig.height")
+library(ComplexHeatmap)
+library(viridis)
+des <- model.matrix(~0 + stage)
+batch_cor_exp <- removeBatchEffect(exp_mat, study, design = des)
+batch_cor_exp[batch_cor_exp<0] <- 0
+
+
+
+mat <- log2(batch_cor_exp[distinct_upregulated,] + 1 )
+sum(mat>10)/length(mat)
+mat[mat>10] <- 10
+topAno <- HeatmapAnnotation(age=sample_design$age, 
+                            stage=sample_design$stage, 
+                            study=sample_design$study_accession,
+                            col=list(stage=c('early'='yellow', 'mid'='orange', 'late'='red'),
+                                     study=c("SRP119766"='green', "SRP105756"='purple', "SRP090040"='blue')),
+                            which = 'col')
+rightAno <- HeatmapAnnotation(protein_coding=ifelse(distinct_upregulated %in% gff3$ID, 'pc', 'nc'),
+                              col=list(protein_coding=c('pc'='pink', 'nc'='white')),
+                              which = 'row')
+
+Heatmap(mat, cluster_rows = F, cluster_columns = T, 
+        show_row_names = F,
+        name = 'log2(TPM+1)',
+        top_annotation = topAno, 
+        right_annotation = rightAno,
+        heatmap_width = unit(7, 'in'),
+        heatmap_height = unit(12, 'in'),
+        col = viridis(100), column_labels = sample_design$age)
+
+
+
+```
+
+Check conservation of sequences in fasta 
+```{r}
+diffexp_bed <- gtf %>% filter(transcript_id %in% distinct_upregulated, type == 'exon') %>% mutate(score=999) %>% 
+  select(seqid, start, end, transcript_id, score, strand)
+write_tsv(diffexp_bed, 'occular_transcriptomes_paper/clean_data/fetal_diffexp_noveltx.bed', col_names = F)
+write(distinct_upregulated, file = '/Volumes/data/eyeintegration_splicing/testing/fetal_diff_Exp.txt', sep = '\n')
+```
+
+```{bash}
+#python3 /Volumes/data/occular_transcriptomes_paper/scripts/select_entry_from_fasta.py --infasta /Volumes/eyeintegration_splicing/old_data_0901019/data/seqs/best_orfs.transdecoder.pep --txToKeep testing/fetal_diff_Exp.txt  --outfasta ~/NIH/occular_transcriptomes_paper/clean_data/fetal_diffexp_novel_tx.fa
+
+```
+
+
+
+

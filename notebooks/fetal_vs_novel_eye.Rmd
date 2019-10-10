@@ -1,0 +1,232 @@
+---
+title: "Adult vs Fetal eye tx"
+output: html_notebook
+---
+
+
+
+```{r setup}
+
+knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+```
+
+
+
+```{r}
+library(tidyverse)
+load('/Volumes/data/occular_transcriptomes_paper/clean_data/exon_classification.Rdata')
+gtf <- rtracklayer::readGFF('all_tissues.combined.gtf')
+tcon_tab <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv')
+eye_tissues <- colnames(tcon_tab)[2:7] # might change, dbl check
+tcon_tab_eye <- tcon_tab %>% select(transcript_id, eye_tissues) %>% filter( (apply(.[,-1],1, function(x) sum(is.na(x))))<6)
+gtf_eye <- filter(gtf, transcript_id %in% tcon_tab_eye$transcript_id)
+
+compare_exon_counts <- function(tissue){ #count the number of distinct expressed exons per gene fetal and Adult
+    
+    ages  <- paste0(tissue, c('_Adult.Tissue', '_Fetal.Tissue'))
+    
+    count_exons <- function(cond){
+        k <- ifelse(grepl('Adult', cond), 'Adult', 'Fetal')
+        cond_tx<-  tcon_tab_eye %>% select(transcript_id, cond) %>% filter(!is.na(.[,2])) %>% pull(transcript_id)
+        gtf %>% filter(transcript_id %in% cond_tx, type == 'exon') %>% 
+        select(seqid, strand, start, end, gene_name) %>% 
+        group_by(gene_name) %>% summarise(exon_count=n()) %>% pull(exon_count)
+            #mutate(dev=k, gene_name=NULL)
+    }
+    
+    res <- lapply(ages, count_exons)
+    names(res) <- c('Adult', 'Fetal')
+    
+    # ggplot(data=(res %>% filter(exon_count<=100))) + 
+    #      geom_violin(aes(y=exon_count, x=dev))+
+    #     coord_flip() +
+    #     theme_minimal()
+
+    #print(sapply(res, length))
+    test <-  c(t.test(res$Adult, res$Fetal, alternative = 'greater')[['p.value']],  
+              t.test(res$Adult, res$Fetal, alternative = 'less')[['p.value']]) 
+    names(test) <- c('greater', 'less')
+    sig <- which.min(test)
+    return(test[sig])
+    
+}
+#Adult  vs Fetal
+compare_exon_counts('Retina')
+compare_exon_counts('RPE')
+compare_exon_counts('Cornea')
+
+```
+
+
+```{r}
+library(ggpubr)
+compare_exon_counts_and_plot <- function(tissue){ #count the number of distinct expressed exons per gene fetal and Adult
+    
+    ages  <- paste0(tissue, c('_Adult.Tissue', '_Fetal.Tissue'))
+    
+    count_exons <- function(cond){
+        k <- ifelse(grepl('Adult', cond), 'Adult', 'Fetal')
+        cond_tx<-  tcon_tab_eye %>% select(transcript_id, cond) %>% filter(!is.na(.[,2])) %>% pull(transcript_id)
+        gtf %>% filter(transcript_id %in% cond_tx, type == 'exon') %>% 
+        select(seqid, strand, start, end, gene_name) %>% 
+        group_by(gene_name) %>% summarise(exon_count=n()) %>%
+            mutate(dev=k, gene_name=NULL)
+    }
+    
+    res <- lapply(ages, count_exons) %>% bind_rows()
+    
+   plot <-  ggboxplot(res, x='dev', y='exon_count', 
+              title = paste0('comparison of # Distinct exons per genes in ', tissue),
+              xlab = 'Developmental point')+
+        stat_compare_means(method = 't.test',)+
+        #coord_flip() +
+        theme_minimal()
+    print(plot)
+    
+}
+
+compare_exon_counts_and_plot('Retina')
+compare_exon_counts_and_plot('RPE')
+compare_exon_counts_and_plot('Cornea')
+
+
+```
+
+```{r}
+library(ggpubr)
+compare_exon_counts_and_plot <- function(tissue){ #count the number of distinct expressed exons per gene fetal and Adult
+    
+    ages  <-  c('Retina_Adult.Tissue', 'RPE_Adult.Tissue')
+    
+    count_exons <- function(cond){
+        k <- ifelse(grepl('Retina', cond), 'Retina', 'RPE')
+        cond_tx<-  tcon_tab_eye %>% select(transcript_id, cond) %>% filter(!is.na(.[,2])) %>% pull(transcript_id)
+        gtf %>% filter(transcript_id %in% cond_tx, type == 'exon') %>% 
+        select(seqid, strand, start, end, gene_name) %>% 
+        group_by(gene_name) %>% summarise(exon_count=n()) %>%
+            mutate(dev=k, gene_name=NULL)
+    }
+    
+   res <- lapply(ages, count_exons) %>% bind_rows()
+    
+   plot <-  ggboxplot(res, x='dev', y='exon_count', 
+              title = paste0('comparison of # Distinct exons per genes in ', tissue),
+              xlab = 'Developmental point')+
+        stat_compare_means(method = 't.test',)+
+        #coord_flip() +
+        theme_minimal()
+    print(plot)
+    
+}
+```
+
+
+
+
+```{r}
+library(tidyverse)
+library(enrichR)
+setwd('~/NIH/occular_transcriptomes_paper/')
+load('clean_data/V1_exon_classification_data.Rdata')
+gtf <- rtracklayer::readGFF('all_tissues.combined.gtf')
+anno_tab <- gtf %>% filter(type == "transcript") %>% select(transcript_id, gene_name, oId)
+tc2ms <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv')
+eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue', 'Cornea_Adult.Tissue',
+                 'Cornea_Fetal.Tissue', "ESC_StemCellLine")
+det_mat <- apply(tc2ms[,-1],2, function(t) !is.na(t)) %>% cbind(tc2ms[,1], .)
+det_eye <- det_mat[,eye_tissues] %>% {rowSums(.) > 0}
+not_det_body <- det_mat %>% as.data.frame %>% 
+    select(-eye_tissues, -transcript_id, -Lens_Stem.Cell.Line) %>% {rowSums(.) == 0}
+eye_spec_tx <- filter(det_mat, det_eye, not_det_body) %>% select(c('transcript_id',eye_tissues))
+ESC_only_tx <-  filter(eye_spec_tx, ESC_StemCellLine, 
+                       rowSums(eye_spec_tx[,-1] %>% as.data.frame() %>% select(-ESC_StemCellLine)) == 0) %>% 
+    pull(transcript_id)  
+eye_spec_tx <- filter(eye_spec_tx, !transcript_id %in% ESC_only_tx)
+fetal_eye_only_tx <- eye_spec_tx %>% select(-contains('Adult')) %>% # pick only novel transcripts.
+    filter(rowSums(.[,-1])!=0) %>% inner_join(anno_tab, .)
+adult_eye_only_tx <- eye_spec_tx %>% filter(!transcript_id %in% fetal_eye_only_tx$transcript_id) %>% inner_join(anno_tab,.)
+
+fetal_eye_novel_only <- fetal_eye_only_tx %>%  filter(!grepl('ENST', oId))
+
+sum(!grepl('ENST', fetal_eye_only_tx$oId))/nrow(fetal_eye_only_tx)
+sum(!grepl('ENST', adult_eye_only_tx$oId))/nrow(adult_eye_only_tx)
+shared_genes <- intersect(fetal_eye_novel_only$gene_name, adult_eye_only_tx$gene_name) %>% .[!grepl('AC0|RP1|RPL',.)] 
+fetal_eye_shared <- fetal_eye_only_tx %>% filter(gene_name %in% shared_genes)
+gse <- enrichr(shared_genes, databases = 'GO_Biological_Process_2015')
+gse_eye <- gse$GO_Biological_Process_2015 %>% 
+    filter(Adjusted.P.value<=.05, grepl('eye|retina|rhod|photo|ganglion|light', Term)) %>%
+    arrange(desc(Combined.Score))
+split_spread <- function(i){
+    genes <- str_split(gse_eye[i, 'Genes'], ';')[[1]]
+    replicate(length(genes),gse_eye[i,1:8], simplify = F) %>% bind_rows() %>% mutate(gene=genes)
+}
+df <- lapply(seq_along(gse_eye$Term), split_spread) %>% bind_rows
+all_genes <- unique(df$gene)
+unique_terms <- unique(df$Term) 
+det_mat <- lapply(unique_terms,  function(x) filter(df, Term == x) %>% pull(gene) %>% {all_genes %in% .} %>% as.numeric) %>% bind_cols() %>% as.matrix()
+colnames(det_mat) <- unique_terms
+rownames(det_mat) <- all_genes
+save(det_mat, '/Volumes/data/occular_transcriptomes_paper/clean_data/novel_transcript_ontology_results')
+
+```
+
+
+
+```{r}
+fetal_eye_only_tx %>% filter(Retina_Fetal.Tissue, RPE_Fetal.Tissue, Cornea_Fetal.Tissue)
+
+
+
+```
+
+for the most part, theres only reference stuff between the 2, so I'm gonna focus on the novel stuff
+
+
+```{r}
+analyze_dev_diff <- function(t_tissue){
+    adult <- paste0(t_tissue, '_Adult.Tissue')
+    fetal <- paste0(t_tissue,'_Fetal.Tissue')
+    
+    exp_in_tissue <- eye_spec_tx %>%  {xor( .[,adult], .[,fetal])}
+    not_exp_in_other_tisses <- eye_spec_tx %>% select(-transcript_id, -(!!fetal), -(!!adult), -ESC_StemCellLine) %>% 
+        {rowSums(.) == 0}
+         
+        
+    diff_exp <- eye_spec_tx %>% 
+        filter(exp_in_tissue, not_exp_in_other_tisses) %>% 
+        select(transcript_id, contains(t_tissue)) %>% 
+        inner_join(anno_tab)
+    switch_genes <- diff_exp %>% group_by(gene_name) %>%
+        summarise(fetal_count:=sum(!!sym(fetal)),adult_count=sum(!!sym(adult)) )%>% 
+        filter(fetal_count ==1, adult_count==1) %>% pull(gene_name)
+   k <-  filter(diff_exp, gene_name %in% switch_genes) %>% arrange(gene_name)
+    
+ }
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+filter(fetal_eye_novel_only, gene_name=='PAX6') %>% View
+shared_genes %>% sort 
+gff <- rtracklayer::readGFF('../eyeintegration_splicing/dl_data/all_tissues.combined_transdecoderCDS.gff3.gz')
+cds_df <- gff %>% as.data.frame %>% filter(type == 'CDS') %>% select(seqid, strand, start, end) %>% distinct %>% 
+    mutate(is.CDS=T)
+```
+

@@ -1,0 +1,91 @@
+---
+title: "Transcriptome build similarity"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+setwd('~/NIH/occular_transcriptomes_paper/')
+```
+
+
+
+
+```{r}
+library(tidyverse)
+library(viridis)
+library(ComplexHeatmap)
+col <- viridis(100)
+gtf <- rtracklayer::readGFF('all_tissues.combined.gtf')
+tctab <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv')
+bool_tab <- apply(tctab[,-1], 2, function(x) as.numeric(!is.na(x))) %>% as.data.frame
+cor_tab <- cor(bool_tab,method = 'spearman')
+Heatmap(cor_tab, col = col, name = 'spearman correlation')
+
+
+
+
+```
+
+
+```{r}
+sample_table <- read_tsv('../eyeintegration_splicing/sampleTableV6.tsv')
+mr <- list.files('/Volumes/data/eyeintegration_splicing/testing/', pattern = 'mapping_rates.tab', full.names = T)
+df <- lapply(mr, function(x) read_delim(x, ' ', col_names = F)) %>% reduce(inner_join, by='X1') 
+mr
+colnames(df) <- c('sample', 'gg_1_mapping_rate', 'ngg_1_mapping_rate', 'gencode_mapping_rate', 'ngg_.5_mapping_rate')
+df %>% mutate(dn_delta= ngg_.5_mapping_rate - gencode_mapping_rate) %>% pull(dn_delta) %>% quantile(seq(0,1,.1))
+
+sample_table %>% pull(sample) %>% {filter(df, sample %in% .)} %>% 
+  mutate(dn_delta= ngg_.5_mapping_rate - gencode_mapping_rate) %>% left_join(sample_table) %>% group_by(subtissue) %>% 
+  summarise(med_delta=median(dn_delta))
+
+
+sample_table %>% filter(!body_location %in%c('Body', 'Brain')) %>% pull(sample) %>% {filter(df, sample %in% .)} %>% 
+  mutate(dn_delta= ngg_.5_mapping_rate - gencode_mapping_rate) %>% left_join(sample_table) %>% group_by(subtissue) %>% 
+  summarise(med_delta=median(dn_delta))
+ # pull(dn_delta) %>% quantile(seq(0,1,.1))
+sample_table %>% filter(subtissue == "Retina_Adult.Tissue") %>% pull(sample) %>% {filter(df, sample %in% .)} %>% 
+  mutate(diff= ngg_.5_mapping_rate- gencode_mapping_rate ) %>% pull(diff) %>% median()
+
+```
+
+
+
+
+```{r}
+library(ggiraph)
+colnames(bool_tab)
+eye_tissues <- c(colnames(bool_tab[1:7]), 'brain')
+tissues <- tibble(subtissue=colnames(bool_tab)) %>% mutate( tissue= c(subtissue[1:7], subtissue[-(1:7)] %>% str_split('-') %>% sapply(function(x) x[1])), eye_tissue=replace(tissue, !tissue %in% eye_tissues, 'body' ) )
+ 
+
+
+pca <- bool_tab %>% t %>% prcomp() 
+
+pca_tab <- pca$x %>% as.data.frame %>% mutate(subtissue=rownames(.)) %>% left_join(tissues) %>% 
+    select(subtissue, tissue, eye_tissue, PC1, PC2 )
+g <- ggplot(data = pca_tab) +
+    geom_point_interactive(aes(x=PC1, y=PC2, colour=eye_tissue, tooltip=subtissue)) +
+    theme_minimal() 
+girafe(ggobj = g)
+
+
+
+```
+
+
+```{r}
+
+raw <- read_delim('/Volumes/data/eyeintegration_splicing/testing/raw_gtf_tx_count', ' ', col_names = c('subtissue', 'raw_count'))
+
+filt <- read_delim('/Volumes/data/eyeintegration_splicing/testing/filt_gtf_tx_count', ' ', col_names = c('subtissue', 'filt_count'))
+left_join(raw,filt) %>% mutate(delta=raw_count - filt_count) %>% View 
+
+
+
+```
+
+
