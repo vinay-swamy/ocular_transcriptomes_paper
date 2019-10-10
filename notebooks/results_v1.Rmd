@@ -1,16 +1,16 @@
 ---
-title: "de novo Occular transcriptomes: results"
-output: 
-  html_notebook:
-      default
-  github_document:
-      default
+title: 'de novo Occular transcriptomes: results'
+output:
+  html_notebook: default
+  github_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, echo=F}
 #knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
-#knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
-knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
+knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
+#knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
 knitr::opts_chunk$set(echo = F, message = F, warning = F)
 ```
 
@@ -19,93 +19,153 @@ knitr::opts_chunk$set(echo = F, message = F, warning = F)
 ```{r prep}
 library(tidyverse)
 library(DT)
+library(RColorBrewer)
+library(UpSetR)
+library(ComplexHeatmap)
+sample_table <- read_tsv('sampleTableV6.tsv')
+load('clean_data/tissue_to_colors.Rdata')
 ```
 
 # Transcriptome pipeline metrics. 
 
-```{r overall_stats, message=FALSE, warning=FALSE}
-load('clean_data/overall_stats.Rdata')
-overall_stats %>% datatable
+```{r overall_stats, fig.width=8, fig.height=8, message=FALSE, warning=FALSE}
+load('clean_data/transcriptome_pipeline_stats.Rdata')
+draw(construction_correlation_heatmap)
 ```
-We constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, then merge gtfs for each sample by subtissue, using a TPM cutoff of of at least 1 TPM in halfddd in each tissue. We then evaluated this using our salmon expression metrics. We found that transcript contruction is largely similar between subtissues, ie in the brain, which gives some measure of sanity to our results.
+I constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, merge gtfs using gencode annotation as a referenct for each sample by subtissue, using a TPM cutoff of of at least 1 TPM in each tissue in each tissue. I then evaluated this using our salmon expression metrics. I found that as expected transcript contruction is largely similar between subtissues of the same tissue type
 
 
 
 # Novel Transcripts and Novel Loci
 
 
-We define Novel transcripts as a novel variation of a known gene. Novel transcripts contain 2 major classes: Modification of a previous exons to create novel, unannotated exons, or a rearrangment of known exons in a novel arrangment. Novel transcripts are also broken down into 3 catagories - noncoding, protein coding but no change in the coding region of the transcript, or a change in the coding region of the transcripts.
-```{r tx_by_tissue, fig.height= 3.5, fig.width=10 }
-load('clean_data/novel_tx_by_tissue.Rdata')
-ggplot(data = novel_transcripts_by_tissue, aes(x=tissue, y=count, fill=type))+
-  geom_bar(stat = 'identity',position = 'dodge') + 
-  ylab(label = 'number of transcripts')+
-  ggtitle(label = 'Constructed Novel Transcripts by Tissue')+
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggplot(data = novel_loci_by_tissue, aes(x=tissue, y=count, fill=type))+
-  geom_bar(stat = 'identity', position = 'dodge') + 
-  ylab(label = 'number of novel loci') +
-  ggtitle(label = 'Constructed Novel loci by Tissue') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-We define novel loci as as entirely novel transcribed regions of the genome, which can also be broken down into protein vs non protein coding. Many of the novel transcripts we find contain no protein coding change(%)
-
-Novel transcripts are novel due to one or more novel/unannotated exon. We can  group novel exons into 2 distinct categories: modifcations of existing exons - alternative exons, or completely distinct regions of transcibed sequence - fully novel exons. For each exon we can try to identify the biological process that drives the inclusion of each exon into transcripts - alternative promoter usage(APU), alternative splicing(AS), or alternative polyadenylation(APA). APU leads to inclusion of novel first exons, AS leads to novel exons in the body of a transcript, and APA leads to novel terminal exons.
-We then wanted to identify what biological process might be driving the formation of these novel exons
-3 major sources of transcriptional variation are alternative splicing, Alternative first exon usage, and alternative terminal exon usage(alternative polyadenylation).
+I define novel transcripts as a novel variation of a known gene. Novel transcripts contain 2 major classes: Modification of a previous exons to create novel, unannotated exons, or a rearrangment of known exons in a novel arrangment.
+```{r Novel_Transcripts}
+load('clean_data/buildResultsSummary.Rdata')
+color_list<- novel_transcripts_per_tissue$color
+names(color_list) <- novel_transcripts_per_tissue$body_location
+ggplot(data = novel_transcripts_per_tissue) +
+    geom_col(aes(x=body_location, y=novel_transcript_count, fill=body_location)) +
+    scale_fill_manual(values = color_list)+
+    ggtitle('Novel Transcripts built in occular tissues')+
+    ylab('number of novel transcripts')+
+    theme(axis.text.x=element_text(angle=45, hjust = 1))
 
 
-```{r classification_of_novel_exons, fig.width=7}
-load('clean_data/exon_classification.Rdata')
-total_exons_desc %>% datatable
-rna_proc_type %>% mutate(count=as.numeric(count)) %>% datatable
 ```
 
 
 
-Next, using the contructed transcriptomes for each tisssue, we analyzed splicing patterns for both reference and novel exons 
+Novel loci are  entirely novel transcribed regions of the genome, which can also be broken down into protein vs non protein coding.
+
+```{r}
+color_list<- novel_loci_per_tissue$color
+names(color_list) <- novel_loci_per_tissue$body_location
+ggplot(data = novel_loci_per_tissue) +
+    geom_col(aes(x=body_location, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+    scale_fill_manual(values = color_list) +
+    scale_alpha_discrete(range=c(.5,1)) +
+    ggtitle('Novel Loci constructed in Occular Tissues') +
+    ylab('number of novel loci detected') +
+     theme(axis.text.x=element_text(angle=45, hjust = 1))
+```
+
+# Novel Exon Classification
+
+
+Novel transcripts are novel due to one or more novel/unannotated exon. A single novel exon can be associated with multiple transcripts, and can either fall in the Protein coding or untranslated region of a transcript, or be part of non coding trnascript.
+```{r classification_of_novel_exons}
+upset(fromList(novel_exon_location_analysis))
+
+```
+
+I then wanted to identify what biological process might be driving the formation of these novel exons
+3 major sources of transcriptional variation are alternative splicing - retained intron(RI) or alternative splice sites(A3SS/A5SS),   Alternative promoters(novel_TSS), and alternative  polyadenylation.(novel_TES). Novel exons are exons that are some combination of the above process, or completely novel regions of transcribed sequence.
+
+```{r}
+load('../eyeintegration_splicing/old_data_0901019/data/rdata/novel_exon_classification.Rdata')
+event_counts <-  novel_exons_TSES %>% pull(nv_type_rc) %>% table %>% {tibble(type=names(.), count=.)}
+ggplot(event_counts)+ 
+  geom_col(aes(x=type, y=count, fill=type))+
+  theme_minimal()
+
+```
+
+# Splicing
+
+
+Next, using the contructed transcriptomes for each tisssue, I analyzed splicing patterns for both reference and novel exons 
 
 
 ```{r splicing_heatmap, fig.height=4, fig.width=8}
 library(ComplexHeatmap)
 library(viridis)
-load('clean_data/splicing_heatmap.Rdata')
-
-splicing_heatmap
+load('clean_data/splicing_analysis_results.Rdata')
 
 ```
 
-While the expression of some exons is ubiquitous across tissues, we can see clear regions in the heatmap that denote tissue specifc splicing
+![Heatmap](/Volumes/data/occular_transcriptomes_paper/clean_data/sphm.png)
 
+While the expression of some exons is ubiquitous across tissues, I can see clear regions in the heatmap that denote tissue specifc splicing.
 
-
-To illustrate the utility of our denovo transcriptomes, we reanalyzed a data set...
-
+Looking specifically at the novel exons in the transcriptomes that I had determiend were due to splicing, I wanted to find out much they are actually being used, so I defined used as haivng a PSI>=.1 One big Thing I saw was that some of the exons that I had annotated as originating from alternative splicing were not considered as alternatively spliced by rMATs(uses GTF to globally define all alternative splicing events). Cornea fetal is not inclused because there are no paired end samples which I need for rMATs
 
 ```{r}
-
-
+ss <-  splicing_sum %>% mutate(percent_used=num_exp_psi/num_det_rmats) %>% 
+  inner_join(sample_table %>% select(subtissue, body_location) %>% distinct) %>% group_by(body_location) %>% 
+  summarise(percent_used=mean(percent_used)) %>% 
+  inner_join(tissue_color_mapping_df) 
+color_list<- ss$color
+names(color_list) <- ss$body_location
+ggplot(data = ss) +
+    geom_col(aes(x=body_location, y=percent_used, fill=body_location)) +
+    scale_fill_manual(values = color_list) +
+    ggtitle('percent minimally used of novel Exons Detected in rMATs') +
+     theme(axis.text.x=element_text(angle=45, hjust = 1))
 ```
 
 
-
-Overlap variants onto novel exons 
-
+Next, I looked at rMATs events that were not being detected/ were not minimally used. Each point is a tissue. Retained intron events are the most commonly undetected/lowly used event
 
 ```{r}
-
+library(ggpubr)
+ggboxplot(undetected_exons_by_event, x='event_type', y='misclassed_events', color = 'event_type', add = 'jitter', 
+    title='Number of Misclassified and Unused novel in each tissue by event type', ylab = 'number of events')+
+    stat_compare_means(label.y = 700)+
+    stat_compare_means(ref.group = '.all.', method.args =list(alternative = 'greater'), 
+                       label.y = 600)
 ```
 
 
+# Fetal vs Adult eye
 
-Finally we provide a tool to visual our results via an online webapp
 
-```{r}
+Next I want to identify some functional differneces between the transcripts contructed in each transcript. I selected all transcripts expressed in the fetal eye and adult eye(Retina, Cornea, RPE), and then identified genes that had a novel trasncript in either fetal or adult, and found enriched gene onotology terms 
 
+
+```{r fig.height=8, fig.width=8}
+load('clean_data/novel_transcript_ontology_results.Rdata')
+det_mat <- det_mat[,pvalues$Term]
+det_mat[det_mat == 1] <- 'associated'
+det_mat[det_mat == 0] <- 'not_associated'
+ha <- HeatmapAnnotation(pval=anno_text(as.character(round(pvalues$Adjusted.P.value, 3)), which = 'col'))
+
+Heatmap(det_mat, cluster_rows = F, cluster_columns = F, col = c('associated'= 'red', 'not_associated'='white'), 
+        column_names_side = 'bottom', column_title_rot = 90, border = T, rect_gp = gpar(col='black'), show_row_names = T,
+        row_names_side = 'left', column_names_rot = 45, top_annotation = ha, column_title = 'pvalue')
 ```
 
 
+# novel loci in the fetal eye
+
+Next, I used the quantification data from eyeintegration to analyze novel loci in the devloping eye. I broke the fetal retina time series into early, mid and late  and looked for differentially expressed genes 
+
+```{r fig.width=7, fig.height=12}
+load('clean_data/fetal_novel_de_hm.Rdata')
+fetal_retina_novel_tx_heatmap
+
+
+```
 
 
 
