@@ -4,34 +4,35 @@ Snakemake wrapper to generate data for occular_transcriptomes_paper
 '''
 working_dir=config['working_dir']
 output_dir=config['output_dir']
-sample_file=output_dir + config['sample_file']
+sample_file=config['sample_file']
 gtf_file=output_dir + 'data/gtfs/all_tissues.combined.gtf'
+exon_classification_file=output_dir + 'data/rdata/novel_exon_classification.Rdata'
+gff3_file=output_dir + 'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3'
+tcons2mstrg=output_dir + 'data/misc/TCONS2MSTRG.tsv'
+
 rule all:
     input: 'notebooks/results_v1.html'
 
-rule transcriptome_pipeline_strategies:
-    input:  output_dir + 'data/gtfs/raw_tissue_gtfs/RPE_Fetal.Tissue_st.gtf'
-    output: 'clean_data/lib_sizes.tab'
+rule transcriptome_pipeline_stats:
+    input:  t2m=tcons2mstrg,
+    params: path_to_bs=output_dir+'data/rawST_tx_quant_files/RPE_Fetal.Tissue/'
+    output: 'clean_data/transcriptome_pipeline_stats.Rdata'
     shell:
         '''
-        bash scripts/count_stats_from_files.sh
-        module load gffcompare
-        gffcompare -r {output_dir}/ref/gencode_comp_ano.gtf -o /tmp/tissue {input}
-        module load
-        Rscript scripts/transcriptome_pipe_line_stats.R
-
-
+        bash scripts/count_stats_from_files.sh {output_dir}
+        module load R
+        Rscript scripts/transcriptome_pipeline_stats.R {working_dir} {sample_file} {input.t2m} {gtf_file} {params.path_to_bs} {output}
         '''
 
 rule summarizeBuildResults:
-    input:exon_class= output_dir + 'data/rdata/novel_exon_classification.Rdata', gff3='data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3', tc2mstrg='data/misc/TCONS2MSTRG.tsv'
+    input:exon_class=exon_classification_file , gff3=gff3_file, tc2mstrg=tcons2mstrg
     output:color_df='clean_data/tissue_to_colors.Rdata', plotting_data='clean_data/buildResultsSummary.Rdata'
     shell:
         '''
+        module load bedtools
         module load R
-        Rscript scripts/summarize_build_results.R {working_dir} {input.exon_class} {gtf_file} {sample_file} {input.gff3} {input.tcons2mstrg} {output.color_df} {output.plotting_data}
+        Rscript scripts/summarize_build_results.R {working_dir} {input.exon_class} {gtf_file} {sample_file} {input.gff3} {input.tc2mstrg} {output.color_df} {output.plotting_data}
         '''
-
 
 # rule overall_stats:
 #     input: gtf_file, output_dir + 'rdata/novel_exon_classification.rdata'
@@ -63,18 +64,28 @@ rule summarizeBuildResults:
 #        '''
 
 rule splicing_hm:
-    input:output_dir+'data/rmats/all_tissues_psi.tsv', sample_file
-    output:working_dir+'clean_data/splicing_heatmap.Rdata'
+    input:psi_file=output_dir+'data/rmats/all_tissues_psi.tsv', tc2mstrg=tcons2mstrg, classfile=exon_classification_file, color_df='clean_data/tissue_to_colors.Rdata'
+    output:'clean_data/splicing_analysis_results.Rdata'
     shell:
         '''
         module load R
-        Rscript scripts/splicing_heatmap.R {output_dir} {input} {output}
+        Rscript scripts/splicing_heatmap.R {working_dir} {input.psi_file} {sample_file} {input.tc2mstrg} {input.classfile} {gtf_file} {input.color_df} {output}
         '''
 
+rule novel_tx_in_fetal_retina_analysis:
+    input:eiad='clean_data/EiaD_quant.Rdata', tc2mstrg=tcons2mstrg, gff3=gff3_file
+    output:'clean_data/fetal_novel_de_results.Rdata','clean_data/fetal_de_novel_tx.txt', 'clean_data/fetal_novel_de_hm.Rdata'
+    shell:
+        '''
+        module load R
+        Rscript scripts/analyze_novel_tx_fetal_retina.R {working_dir} {sample_file} {input.eiad} {input.tc2mstrg} {gtf_file} {input.gff3} {output}
+        '''
+
+
+
 rule knit_notebooks:
-    input:working_dir+'clean_data/buildResultsSummary.Rdata', working_dir+'clean_data/splicing_heatmap.Rdata'
-    #working_dir+'clean_data/exon_classification.Rdata',\
-    #working_dir+'clean_data/novel_tx_by_tissue.Rdata',\
+    input:'clean_data/buildResultsSummary.Rdata', 'clean_data/splicing_analysis_results.Rdata', 'clean_data/fetal_novel_de_results.Rdata', 'clean_data/fetal_novel_de_hm.Rdata','clean_data/transcriptome_build_summary.Rdata'
+
     output: 'notebooks/results_v1.html'
     shell:
         '''
