@@ -62,12 +62,12 @@ novel_loci_per_tissue <- lapply(subtissues, function(i) tc2m_novel_loci %>%
                                 {tibble(subtissue=i, num_pc=sum(.$`is.PC`), num_nc=nrow(.) - sum(.$`is.PC`) )}  ) %>%
     bind_rows() %>% 
     left_join( sample_table %>% select(subtissue, body_location) %>% distinct ) %>% group_by(body_location) %>% 
-    summarise(noncoding_tx=mean(num_nc), pc_tx=mean(num_pc)) %>% 
+    summarise(noncoding_tx=mean(num_nc), pc_tx=mean(num_pc)) %>% left_join(tissue_color_mapping_df) %>% 
     mutate(body_location=replace(body_location, body_location == 'Body', 'Body(avg)'),
            body_location=replace(body_location, body_location == 'Brain', 'Brain(avg)')
     ) %>% 
-    gather(transcript_type, counts, -body_location) %>% 
-    left_join(tissue_color_mapping_df)
+    gather(transcript_type, counts, -body_location)
+    
 # color_list<- novel_loci_per_tissue$color
 # names(color_list) <- novel_loci_per_tissue$body_location
 # ggplot(data = novel_loci_per_tissue) +
