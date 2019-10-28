@@ -44,7 +44,6 @@ var_sum <- function(all_bs){
         geom_density(data = tibble(ref=ref_medvar, cond='Reference'), aes(x=ref, color=cond)) +
         geom_density(data=tibble(novel=novel_medvar, cond='Novel'), aes(x=novel, color=cond)) +
         geom_vline(xintercept=refvar_95,colour='green')+
-        geom_text(aes(x=refvar_95, y=.005,label='99th Percentile'),angle=90)+
         xlab('Salmon Transcript Variance')+
         xlim(c(0,refvar_95+100)) + 
         ggtitle('Distribution of Quantification Variance for Reference and Novel Transcripts')+
@@ -60,7 +59,7 @@ var_sum <- function(all_bs){
     # print(plot2)
 }
 
-var_sum(all_bs_rpe_tpec)
+var_sum(all_bs_rpe_tpec) 
 ```
 
 check only transcripts that passed quantification filter
