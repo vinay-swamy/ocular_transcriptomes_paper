@@ -47,7 +47,7 @@ names(color_list) <- novel_transcripts_per_tissue$body_location
 ggplot(data = novel_transcripts_per_tissue) +
     geom_col(aes(x=body_location, y=novel_transcript_count, fill=body_location)) +
     scale_fill_manual(values = color_list)+
-    ggtitle('Novel Transcripts built in occular tissues')+
+    ggtitle('Novel Isoforms built in occular tissues')+
     ylab('number of novel transcripts')+
     theme(axis.text.x=element_text(angle=45, hjust = 1))
 
@@ -75,7 +75,27 @@ ggplot(data = novel_loci_per_tissue) +
 
 Novel transcripts are novel due to one or more novel/unannotated exon. A single novel exon can be associated with multiple transcripts, and can either fall in the Protein coding or untranslated region of a transcript, or be part of non coding trnascript.
 ```{r classification_of_novel_exons}
-upset(fromList(novel_exon_location_analysis))
+complete_gtf <- rtracklayer::readGFF('~/NIH/occular_transcriptome_shiny/all_tissues.combined_NovelAno.gtf')
+
+exon_info <- complete_gtf %>% select(id, nv_type_rc, exon_location) %>% filter(!is.na(id)) %>% distinct 
+table(exon_info$exon_location)
+res=list()
+location_counts=list()
+j=1
+for(i in c('CDS', 'UTR', 'NC') ){
+  print(i)
+  k <- filter(exon_info, exon_location == i) %>% pull(nv_type_rc) %>% table
+  res[[j]] <-  tibble(location=i, event_type=names(k), count=k)
+  location_counts[[i]] <- filter(exon_info, exon_location == i) %>% pull(id)
+  j <- j+1
+}
+res <- bind_rows(res)
+
+ggplot(res) + 
+  geom_col(aes(x=event_type, y=count, fill=event_type)) + 
+  facet_wrap( ~ location)
+novel_exon_location_analysis <- list(pr)
+upset(fromList(location_counts))
 
 ```
 
@@ -120,7 +140,7 @@ names(color_list) <- ss$body_location
 ggplot(data = ss) +
     geom_col(aes(x=body_location, y=percent_used, fill=body_location)) +
     scale_fill_manual(values = color_list) +
-    ggtitle('percent minimally used of novel Exons Detected in rMATs') +
+    ggtitle('percent minimally used(PSI >.1) of novel Exons Detected in rMATs') +
      theme(axis.text.x=element_text(angle=45, hjust = 1))
 ```
 
@@ -163,6 +183,18 @@ Next, I used the quantification data from eyeintegration to analyze novel loci i
 ```{r fig.width=7, fig.height=12}
 load('clean_data/fetal_novel_de_hm.Rdata')
 fetal_retina_novel_tx_heatmap
+
+
+```
+
+
+
+```{r}
+data.frame(x=c(1,2,3,4,5) .
+           y=c(6,6,6,6,6), 
+           )
+
+
 
 
 ```

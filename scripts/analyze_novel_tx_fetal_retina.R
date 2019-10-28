@@ -116,9 +116,9 @@ for( i in c("early-late","early-mid", 'late-mid')){
         as.data.frame %>% mutate(gene_name=rownames(.)) %>% 
         filter(grepl('TCONS', gene_name), gene_name %in% retina_fetal_exp)
     upregulated[[top]] <- c(upregulated[[top]],
-                            df %>% filter(logFC >0) %>% arrange(desc(logFC)) %>%  pull(gene_name))
+                            df %>% filter(logFC >2) %>% arrange(desc(logFC)) %>%  pull(gene_name))
     upregulated[[bottom]] <- c(upregulated[[bottom]], 
-                               df %>% filter(logFC <0) %>% arrange(desc(abs(logFC))) %>% pull(gene_name) )
+                               df %>% filter(logFC <2) %>% arrange(desc(abs(logFC))) %>% pull(gene_name) )
     limma_de[[i]] <- df
 }
 
@@ -130,9 +130,14 @@ batch_cor_exp[batch_cor_exp<0] <- 0
 
 
 
-mat <- log2(batch_cor_exp[distinct_upregulated,] + 1 )
-sum(mat>10)/length(mat)
-#mat[mat>10] <- 10
+
+mat <- batch_cor_exp[distinct_upregulated,] 
+exp_by_stage <- lapply(c('early', 'mid', 'late'), function(x) filter(sample_design, stage == x) %>% pull(sample) %>% {batch_cor_exp[,.]} %>%
+           rowMeans) %>% bind_cols %>% mutate()
+
+
+sum(mat>500)/length(mat)
+mat[mat>500] <- 500
 topAno <- HeatmapAnnotation(age=sample_design$age, 
                             stage=sample_design$stage, 
                             study=sample_design$study_accession,
@@ -148,8 +153,6 @@ hm <- Heatmap(mat, cluster_rows = F, cluster_columns = T,
         name = 'log2(TPM+1)',
         top_annotation = topAno, 
         right_annotation = rightAno,
-        heatmap_width = unit(7, 'in'),
-        heatmap_height = unit(12, 'in'),
         col = viridis(100), column_labels = sample_design$age)
 fetal_retina_novel_tx_heatmap <- draw(hm)
 
