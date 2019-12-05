@@ -1,0 +1,389 @@
+---
+title: "Using Gffcompare to improve transcriptome build"
+output: html_notebook
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/NIH/')
+```
+
+I realized I could use stringtie --merge on each sample, so I can now determine transcript detection per sample.
+This data is Retina Adult tissue, with a 1 TPM cutoff, and minimum 5% isoform fraction
+
+
+
+```{r}
+library(tidyverse)
+library(ComplexHeatmap)
+library(viridis)
+nm_col <- function(col){
+    col=col[col!='-']
+    name=str_split(col[1], '\\.\\d|_|:|\\|')[[1]][2] %>% str_split('_MSTRG') %>% .[[1]] %>% .[1]
+    return(name)
+}
+dist_func <- function(mat){
+ mat <- as.matrix(mat)
+ result <- matrix(nrow = ncol(mat), ncol = ncol(mat), data=NA)
+ for(i in 1:nrow(result)){
+     for(j in 1:nrow(result)){
+         #result[j,i] <- sum(mat[,i] == mat[,j])
+          result[j,i] <- sum((mat[,i] - mat[,j]))
+     }
+ }
+ result <- result/nrow(mat)
+ colnames(result) <- colnames(mat)
+ result 
+} #an equivalancey based distance
+
+gtf <- rtracklayer::readGFF('~/NIH/eyeintegration_splicing/testing/Retina_Adult.Tissue.combined.gtf')
+ref_gtf <- rtracklayer::readGFF('~/NIH/dev_eyeintegration_splicing/ref/gencode_comp_ano.gtf')
+
+
+track_tab<- read_tsv('~/NIH/eyeintegration_splicing/testing/Retina_Adult.Tissue.tracking', col_names = F) 
+names <- c('transcript_id', 'gene_id','refid','code', apply(track_tab[,-(1:4)], 2, nm_col))
+colnames(track_tab) <- names
+track_tab <- track_tab %>% mutate(refid=str_split(refid, '\\|') %>% sapply(function(x)x[2]))
+det_df <- apply(track_tab[,-(1:4)],2, function(x) x!='-') %>% as.data.frame %>%  bind_cols(track_tab[,1:4],.)
+num_det_df <-det_df %>% mutate(num_det=rowSums(det_df[,-(1:4)])) %>%   
+  select(transcript_id, gene_id, refid, code,num_det) 
+sample_table <- read_tsv('/Volumes/data/eyeintegration_splicing/sampleTableV6.tsv')
+
+
+
+```
+Using Retina Adult Tissue because there should be minimal biological variation between samples
+
+
+```{r}
+raw_num_det_df <- num_det_df
+ggplot(raw_num_det_df) +
+  geom_histogram(aes(x=num_det))+
+  ylab('number of transcripts') + 
+  xlab('number samples detected in')+
+  ggtitle('Detection of transcripts in adult retina') + 
+  theme_minimal()
+
+```
+
+
+```{r}
+t_tissue='Retina_Adult.Tissue'
+load('/Volumes/data/eyeintegration_splicing/ref/core_tight.Rdata')
+sample_Table_studies <- core_tight %>% 
+    select(sample=sample_accession, study_accession) %>% distinct %>% left_join(sample_table,.) %>%
+    mutate(study_accession= case_when(is.na(study_accession) & tissue == 'RPE' ~ 'OGVFB',
+                                      is.na(study_accession) & tissue == 'Retina' ~ 'EMTAB',
+                                      T ~ study_accession
+    )) %>% filter(subtissue == t_tissue)
+studies <- unique(sample_Table_studies$study_accession)
+
+
+print(co)
+co=3
+det_in_study <- function(study){
+    filter(sample_Table_studies, study_accession %in% study) %>% pull(sample) %>% 
+        {select(det_df, transcript_id, .)}  %>% { rowSums(.[,-1]) >= 1 }
+}
+keep <- lapply(studies,det_in_study ) %>% bind_cols() %>% {rowSums(.)  >= co}
+keep_tx <- filter(det_df, keep) %>% pull(transcript_id)
+
+keep_codes <- c('=','+','c','k','m','n','j', 'u')
+num_det_df_chess_kc <- filter(num_det_df, transcript_id %in% keep_tx, code %in% keep_codes)
+ref_gtf_tx <- ref_gtf %>% filter(type == 'transcript')%>% select(seqid, strand, start, end, refid=transcript_id)
+gtf_tx <- gtf %>% filter(type == 'transcript') 
+gffc_ref_absmatch <- gtf_tx %>% filter(class_code == '=') %>% inner_join(ref_gtf_tx) %>% pull(transcript_id)
+det_df$code[det_df$code == '='] <- '*'
+num_det_df_chess_kc$code[num_det_df_chess_kc$code == '='] <- '*'
+num_det_df_chess_kc$code[num_det_df_chess_kc$transcript_id %in% gffc_ref_absmatch] <- '='
+
+
+
+ggplot(num_det_df_chess_kc) +
+  geom_histogram(aes(x=num_det))+
+  ylab('number of transcripts') + 
+  xlab('number samples detected in')+
+  ggtitle('Transcripts detected in at least 3 different studies (adult retina)') + 
+  theme_minimal()
+
+
+
+```
+
+
+
+```{r}
+quantile(num_det_df$num_det, seq(0,1,.1)) 
+sum(num_det_df$num_det>=10)/nrow(num_det_df)
+quantile(num_det_df$num_det, seq(.8,1,.02)) 
+```
+So about 7% of transcripts are detected at 1TPM and at 5% of isoFrac 
+
+
+Lets look at the tx codes.
+
+clean codes first 
+```{r}
+ref_gtf_tx <- ref_gtf %>% filter(type == 'transcript')%>% select(seqid, strand, start, end, refid=transcript_id)
+gtf_tx <- gtf %>% filter(type == 'transcript') 
+gffc_ref_absmatch <- gtf_tx %>% filter(class_code == '=') %>% inner_join(ref_gtf_tx) %>% pull(transcript_id)
+
+det_df$code[det_df$code == '='] <- '*'
+num_det_df$code[num_det_df$code == '='] <- '*'
+num_det_df$code[num_det_df$transcript_id %in% gffc_ref_absmatch] <- '='
+det_df$code[det_df$transcript_id %in% gffc_ref_absmatch] <- '='
+
+```
+now '=' denotes a complete(transcript start and end and intron chain), and  * is intron chain match, but start|end is different
+
+see https://ccb.jhu.edu/software/stringtie/gffcompare.shtml for code explanations, but the ones we want to keep are
+=,+,c,k,m,n,j
+
+
+overal summary
+```{r}
+table(num_det_df$code) %>% sort
+```
+It looks like the disregard retained introns mode removes all introns. 
+
+check the old build to see if this is true
+
+cut -f4 /Volumes/data/eyeintegration_splicing/old_data_0901019/data/gffcomp_dir/all_tissues.tracking |sort |uniq -c
+
+183645 =
+    443 e
+   4178 i
+  57160 j
+   2741 k
+   1264 o
+    889 p
+     11 s
+   3498 u
+   1109 x
+     57 y
+(ran it on biowulf)
+
+So this means the retained introns are likely coming from the j code
+
+quantile summary by code
+```{r}
+all_codes <- unique(num_det_df$code)
+lapply(all_codes, function(c) filter(num_det_df, code == c) %>% pull(num_det) %>% quantile(., seq(0,1,.1))) %>%
+  do.call(rbind, .) %>% as.data.frame %>% mutate(code=all_codes) %>% select(code, everything())
+
+
+```
+Intrestingly, the *(alterntive tx 5'start/3'end) seems to be the most consistent across all samples. Gonna look at that more later.
+
+In chess, they used a TPM > 1 and detection of a transcript in at least 1 TPM.
+
+```{r}
+
+num_det_df_chess <- filter(num_det_df, num_det >=10)
+nrow(num_det_df_chess)
+table(num_det_df_chess$code) %>% sort 
+
+```
+now only the code we wanna keep
+
+```{r}
+keep_codes <- c('=','+','c','k','m','n','j', 'u')
+num_det_df_chess_kc <- filter(num_det_df, num_det >=10, code %in% keep_codes)
+nrow(num_det_df_chess_kc)
+table(num_det_df_chess_kc$code) %>% sort 
+```
+
+
+
+UPDATE: ran using detected in 10 samples @ 1 TPM, got significantly lower results, especiall in the body. 10 samples is 50% of total samples(by tissue) in current set, whereas in the chess 10 samples is  about 10% 
+
+
+
+ok, now I basically ran a grid search on trasncript contstuction, for all samples. I'm using TPM=[.1, 1], isofrac[.01, .05], and minimum number of samples detected in(NM)[5,10, study_min, study_all]; study_min is transcript needs to be detected in at least 3 studies, study_all is detected in all studies
+
+
+```{r}
+
+read_grid_search_res <- function(file){
+  df <- read_delim(file, ' ', 
+                  col_names = c('raw', 'num_tx'))
+  raw_split <- str_split(df$raw, '/|TPM_|_isoform_|_co_')
+  df %>% mutate(TPM=sapply(raw_split, function(x) x[3] )%>% as.numeric,
+                isf=sapply(raw_split, function(x) x[4] )%>% as.numeric,
+                NM=sapply(raw_split, function(x) x[5] %>% str_remove('_'))
+              )
+
+}
+
+all_merged_res <- read_grid_search_res('/Volumes/data/eyeintegration_splicing/testing/stringtie_build_testing/st_bt_tx_counts/all_tissue.merged_tx_counts.tab')
+
+
+cornea_fetal_res <- read_grid_search_res('/Volumes/data/eyeintegration_splicing/testing/stringtie_build_testing/st_bt_tx_counts/Cornea_Fetal.Tissue.tx_counts.tab')
+rpe_fetal_res <- read_grid_search_res('/Volumes/data/eyeintegration_splicing/testing/stringtie_build_testing/st_bt_tx_counts/RPE_Fetal.Tissue.tx_counts.tab')
+```
+
+
+```{r}
+all_merged_res
+```
+looks like isoform fraction doesnt matter much
+
+```{r}
+cornea_fetal_res
+```
+
+
+```{r}
+rpe_fetal_res
+```
+
+In any case, I think I'm gonna stick with just the 
+
+
+
+```{r}
+classify_novel_exons <- function(gfc_gtf, all_exons, all_transcripts){
+  library(tidyverse)
+  library(RBedtools)
+  novel_transcripts <- anti_join(gfc_gtf %>% filter(type == 'exon'), all_exons) %>% 
+  filter(!grepl('TCONS', gene_name)) %>% 
+  pull(transcript_id) %>% {filter(gfc_gtf, type == 'transcript', transcript_id %in% .)}
+  built_ref_tx <- filter(gfc_gtf, type == 'transcript') %>% inner_join(all_transcripts) 
+  novel_loci <- anti_join(gfc_gtf %>% filter(type == 'transcript'), all_transcripts) %>% filter(class_code =='u')
+  
+  novel_single_exon_tx <- novel_transcripts$transcript_id %>% {filter(gfc_gtf, transcript_id  %in% .)} %>%
+    group_by(transcript_id) %>%
+    summarise(count=n()) %>% filter(count == 2) %>% pull(transcript_id) %>%  
+    {filter(novel_transcripts, transcript_id %in% .)}
+  novel_transcripts <- filter(novel_transcripts, !transcript_id %in% novel_single_exon_tx$transcript_id)
+  
+  # remove novel loci that overlap with known genes
+  ## Not going to add the 10kb upstream/downstream yet
+  novel_loci_bed <- novel_loci %>% filter(type == 'transcript') %>%  mutate(score=999) %>% 
+    select(seqid, start, end, transcript_id, score, strand) %>% from_data_frame %>% RBedtools('sort',i=.)
+  
+  intersect <- all_transcripts %>% mutate(score=999) %>% select(seqid, start, end, origin, score, strand) %>% 
+    from_data_frame %>% 
+    RBedtools('sort', output = 'stdout', i=.) %>% 
+    RBedtools('intersect',options = '-loj -s',a=novel_loci_bed, b=.  ) %>% 
+    to_data_frame
+  
+  
+  
+  novel_loci_distinct <- filter(intersect, X8 == -1) %>% pull(X4) %>% {filter(novel_loci, transcript_id %in% .)} 
+  
+  
+  novel_exons <- gfc_gtf %>% 
+    filter(type == 'exon', !transcript_id %in% novel_loci$transcript_id, 
+           !transcript_id %in% novel_single_exon_tx$transcript_id ) %>%
+    select(seqid, strand, start, end) %>% 
+    anti_join( all_exons) %>% distinct %>% 
+    mutate(id=paste0('nvl_exon', 1:nrow(.)))
+  
+  nvl_start <- anti_join(novel_exons %>% select(seqid, strand, start, id), all_exons) %>% { novel_exons$id  %in% .$id}
+  nvl_end <- anti_join(novel_exons %>% select(seqid, strand, end, id), all_exons) %>% {novel_exons$id  %in% .$id }
+  
+  novel_exons <- novel_exons %>% mutate(nv_type=case_when(nvl_start & nvl_end ~ 'novel_exon',
+                                                          !nvl_start & nvl_end ~ 'A3SS',
+                                                          nvl_start & !nvl_end ~ 'A5SS',
+                                                          !nvl_start & !nvl_end ~ 'RI'))
+  
+  
+  # 
+  # 
+  gfc_gtf_ano <- filter(gfc_gtf, !transcript_id %in% novel_loci$transcript_id)
+  gfc_gtf_ref <- filter(gfc_gtf_ano, !transcript_id %in% novel_transcripts$transcript_id)
+  
+  gfc_gtf_full <-  gfc_gtf_ano %>% 
+    filter(transcript_id  %in% novel_transcripts$transcript_id) %>% select(seqid, strand, start, end) %>%
+    distinct %>% anti_join(gfc_gtf_ref) %>% anti_join(all_exons) %>% anti_join(all_transcripts) %>%
+    mutate(is.novel=T) %>% left_join(gfc_gtf_ano, .) %>% mutate(is.novel=replace_na(is.novel, F))
+  # 
+  
+  # 
+  # uniq_tss <-  gfc_gtf_full %>% filter(exon_number==1) %>% 
+  #     select(seqid, strand, start) %>% distinct %>% 
+  #     mutate(tss_id=paste0('TSS_', 1:nrow(.)))
+  
+  same_start <-  gfc_gtf_full %>% filter(exon_number==1) %>%
+    select(seqid, strand, start, end, gene_name) %>% distinct %>%  
+    group_by(seqid, strand ,start) %>% 
+    summarise(count=n(), max_end=max(end), s_gene_name=first(gene_name)) %>% filter( count >1)
+  
+  uniq_starts <- gfc_gtf_full %>% filter(exon_number==1) %>%
+    select(seqid, strand, start, end, gene_name) %>% distinct %>% 
+    anti_join(same_start) %>% 
+    bind_rows(., same_start %>% select(seqid, strand, start, end=max_end, gene_name=s_gene_name))
+  
+  multi_start_genes <- uniq_starts %>% 
+    group_by(gene_name) %>% 
+    summarise(count=n()) %>% 
+    filter(count >1) %>% pull(gene_name)
+  uniq_start_multi_gene <- novel_exons %>% mutate(novel_start=nvl_start) %>% filter(novel_start) %>% 
+    select(seqid, strand, start, novel_start) %>% distinct %>%  
+    left_join(uniq_starts, .) %>% 
+    mutate(novel_start=replace_na(novel_start, F)) %>% filter(gene_name %in% multi_start_genes)
+  
+  
+  
+  terminal_exons <-  gfc_gtf_full %>% filter(type == 'exon') %>% group_by(transcript_id) %>% 
+    summarise(seqid=last(seqid), strand=last(strand), start=last(start), end=last(end), gene_name=last(gene_name)) %>% 
+    select(-transcript_id) %>%  distinct
+  
+  same_ends <- terminal_exons %>% group_by(seqid, strand, end) %>% 
+    summarise(min_start=min(start), count=n(), s_gn=first(gene_name)) %>% filter(count>1)
+  uniq_ends <- terminal_exons %>% anti_join(same_ends) %>% 
+    bind_rows(same_ends %>% select(seqid, strand, start=min_start, end, gene_name =s_gn))
+  multi_end_genes <- uniq_ends %>% group_by(gene_name) %>% summarise(count=n()) %>% filter(count>1) %>% pull(gene_name)
+  
+  uniq_ends_multi_gene <- novel_exons %>% mutate(novel_end=nvl_end) %>% select(seqid, strand, end, novel_end) %>% 
+    filter(novel_end) %>% distinct %>% 
+    left_join(uniq_ends, .) %>% mutate(novel_end=replace_na(novel_end, F)) %>% filter(gene_name %in% multi_end_genes)
+  
+  novel_exons_TSES <- novel_exons %>% left_join( uniq_start_multi_gene %>% select(seqid, strand, start, novel_start) %>% distinct) %>% 
+    left_join(uniq_ends_multi_gene %>% select(seqid, strand, end, novel_end)) %>% rename(novelTSS=novel_start, novelTES=novel_end)
+  novel_exons_TSES[is.na(novel_exons_TSES)] <- F
+  
+  gtf_tx <- filter(gfc_gtf, type =='exon') %>% select(seqid, strand, start, end, transcript_id) %>% distinct 
+  novel_exons_TSES <- novel_exons_TSES %>% mutate(nv_type_rc = case_when(novelTSS ~ 'novel_TSS',
+                                                                         novelTES ~ 'novel_TES',
+                                                                         TRUE ~ nv_type)) %>% inner_join(gtf_tx)
+    
+  return(novel_exons_TSES)
+}
+
+```
+
+
+```{r}
+
+load('~/NIH/dev_eyeintegration_splicing/rdata/all_ref_tx_exons.rdata')
+
+
+
+
+novel_exons <- classify_novel_exons(gtf, all_exons = all_exons, all_transcripts = all_transcripts)
+novel_exons_ri <- filter(novel_exons,nv_type_rc == 'RI')
+num_det_riexons <- filter(num_det_df,  transcript_id %in% novel_exons_ri$transcript_id, num_det >=5)
+
+ggplot(num_det_riexons) +
+  geom_histogram(aes(x=num_det))+
+  ylab('number of transcripts') + 
+  xlab('number samples detected in')+
+  ggtitle('Detection of transcripts with Retained Introns in adult retina') + 
+  theme_minimal()
+
+```
+
+```{r}
+quantile(num_det_riexons$num_det, seq(0,1,.1)) 
+sum(num_det_riexons$num_det >=10)/nrow(num_det_riexons)
+quantile(num_det_riexons$num_det, seq(.8,1,.02)) 
+```
+tbh I don't know how this is gonna effect the new method at all
+
+
+
+
+
+
+

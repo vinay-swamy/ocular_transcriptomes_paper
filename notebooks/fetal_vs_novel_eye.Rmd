@@ -118,115 +118,106 @@ compare_exon_counts_and_plot <- function(tissue){ #count the number of distinct 
     print(plot)
     
 }
+
+
+
+
 ```
 
-
+what do I want to show? Genes specific to retinal biology have a noncoding/alternate minor isoform in fetal retina
 
 
 ```{r}
 library(tidyverse)
 library(enrichR)
+library(UpSetR)
+library(matrixStats)
 setwd('~/NIH/occular_transcriptomes_paper/')
 load('clean_data/V1_exon_classification_data.Rdata')
-gtf <- rtracklayer::readGFF('all_tissues.combined.gtf')
+gtf <- rtracklayer::readGFF('all_tissues.combined_NovelAno.gtf')
 anno_tab <- gtf %>% filter(type == "transcript") %>% select(transcript_id, gene_name, oId)
-tc2ms <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv')
+tc2ms <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv') %>% filter(!transcript_id %in% novel_loci_distinct$transcript_id)
 eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue', 'Cornea_Adult.Tissue',
                  'Cornea_Fetal.Tissue', "ESC_StemCellLine")
-det_mat <- apply(tc2ms[,-1],2, function(t) !is.na(t)) %>% cbind(tc2ms[,1], .)
-det_eye <- det_mat[,eye_tissues] %>% {rowSums(.) > 0}
-not_det_body <- det_mat %>% as.data.frame %>% 
-    select(-eye_tissues, -transcript_id, -Lens_Stem.Cell.Line) %>% {rowSums(.) == 0}
-eye_spec_tx <- filter(det_mat, det_eye, not_det_body) %>% select(c('transcript_id',eye_tissues))
-ESC_only_tx <-  filter(eye_spec_tx, ESC_StemCellLine, 
-                       rowSums(eye_spec_tx[,-1] %>% as.data.frame() %>% select(-ESC_StemCellLine)) == 0) %>% 
-    pull(transcript_id)  
-eye_spec_tx <- filter(eye_spec_tx, !transcript_id %in% ESC_only_tx)
-fetal_eye_only_tx <- eye_spec_tx %>% select(-contains('Adult')) %>% # pick only novel transcripts.
-    filter(rowSums(.[,-1])!=0) %>% inner_join(anno_tab, .)
-adult_eye_only_tx <- eye_spec_tx %>% filter(!transcript_id %in% fetal_eye_only_tx$transcript_id) %>% inner_join(anno_tab,.)
+sample_table_eye <- read_tsv('~/NIH/eyeintegration_splicing/sampleTableV6.tsv') %>% 
+    filter(subtissue %in% eye_tissues)
 
-fetal_eye_novel_only <- fetal_eye_only_tx %>%  filter(!grepl('ENST', oId))
+retnet <- scan('/Volumes/data/eyeintegration_splicing/ref/retnet_hgncIDs_2017-03-28.txt', '\n')
+#this is our baseline sets, all transcripts that were only built in the eye 
+t2g <- gtf %>% filter(type == 'transcript') %>% select(transcript_id, gene_name) %>% distinct 
+load('all_tissues_complete_quant.rdata') 
+complete_quant[is.na(complete_quant)] <- 0
+counts_eye <- complete_quant[,c('transcript_id', sample_table_eye$sample)]
+counts_eye_by_tissue <- lapply(eye_tissues, 
+                               function(tis) filter(sample_table_eye, subtissue == tis) %>% pull(sample) %>%
+                                   {counts_eye[,c('transcript_id', .)]} %>%
+                                   mutate(!!tis := rowMedians(.[,-1] %>% as.matrix)) %>%
+                                   select(transcript_id, !!tis) ) %>% reduce(left_join) %>% left_join(t2g, .)
 
-sum(!grepl('ENST', fetal_eye_only_tx$oId))/nrow(fetal_eye_only_tx)
-sum(!grepl('ENST', adult_eye_only_tx$oId))/nrow(adult_eye_only_tx)
-shared_genes <- intersect(fetal_eye_novel_only$gene_name, adult_eye_only_tx$gene_name) %>% .[!grepl('AC0|RP1|RPL',.)] 
-fetal_eye_shared <- fetal_eye_only_tx %>% filter(gene_name %in% shared_genes)
-gse <- enrichr(shared_genes, databases = 'GO_Biological_Process_2015')
-gse_eye <- gse$GO_Biological_Process_2015 %>% 
-    filter(Adjusted.P.value<=.05, grepl('eye|retina|rhod|photo|ganglion|light', Term)) %>%
-    arrange(desc(Combined.Score))
-split_spread <- function(i){
-    genes <- str_split(gse_eye[i, 'Genes'], ';')[[1]]
-    replicate(length(genes),gse_eye[i,1:8], simplify = F) %>% bind_rows() %>% mutate(gene=genes)
+keep <- rowSums(counts_eye_by_tissue[,-(1:2)]) > 0
+med_0_counts_eye <- counts_eye_by_tissue[!keep,]
+counts_eye_by_tissue <- counts_eye_by_tissue[keep,]
+
+
+
+calc_isoform_percentage <- function(t_tissue){
+    df <- counts_eye_by_tissue %>% select(transcript_id, gene_name, !!t_tissue)
+    tt_sym <- as.symbol(t_tissue)
+    df_gene_sums <- df %>% 
+        select(-transcript_id) %>% 
+        group_by(gene_name) %>%  
+        summarise(gene_sums:= sum(!!tt_sym)) %>% 
+        left_join(df, .) %>% 
+        mutate(piu = .[[t_tissue]] / .[['gene_sums']], !!t_tissue :=NULL ) %>% 
+        select(transcript_id, gene_name, !!t_tissue:=piu)
+    return(df_gene_sums)
+    
 }
-df <- lapply(seq_along(gse_eye$Term), split_spread) %>% bind_rows
-all_genes <- unique(df$gene)
-unique_terms <- unique(df$Term) 
-det_mat <- lapply(unique_terms,  function(x) filter(df, Term == x) %>% pull(gene) %>% {all_genes %in% .} %>% as.numeric) %>% bind_cols() %>% as.matrix()
-colnames(det_mat) <- unique_terms
-rownames(det_mat) <- all_genes
-save(det_mat, '/Volumes/data/occular_transcriptomes_paper/clean_data/novel_transcript_ontology_results')
 
-```
-
-
-
-```{r}
-fetal_eye_only_tx %>% filter(Retina_Fetal.Tissue, RPE_Fetal.Tissue, Cornea_Fetal.Tissue)
-
-
-
-```
-
-for the most part, theres only reference stuff between the 2, so I'm gonna focus on the novel stuff
-
-
-```{r}
-analyze_dev_diff <- function(t_tissue){
-    adult <- paste0(t_tissue, '_Adult.Tissue')
-    fetal <- paste0(t_tissue,'_Fetal.Tissue')
-    
-    exp_in_tissue <- eye_spec_tx %>%  {xor( .[,adult], .[,fetal])}
-    not_exp_in_other_tisses <- eye_spec_tx %>% select(-transcript_id, -(!!fetal), -(!!adult), -ESC_StemCellLine) %>% 
-        {rowSums(.) == 0}
-         
-        
-    diff_exp <- eye_spec_tx %>% 
-        filter(exp_in_tissue, not_exp_in_other_tisses) %>% 
-        select(transcript_id, contains(t_tissue)) %>% 
-        inner_join(anno_tab)
-    switch_genes <- diff_exp %>% group_by(gene_name) %>%
-        summarise(fetal_count:=sum(!!sym(fetal)),adult_count=sum(!!sym(adult)) )%>% 
-        filter(fetal_count ==1, adult_count==1) %>% pull(gene_name)
-   k <-  filter(diff_exp, gene_name %in% switch_genes) %>% arrange(gene_name)
-    
- }
+piu_raw <- lapply(colnames(counts_eye_by_tissue)[-(1:2)], calc_isoform_percentage) %>% reduce(left_join)
+source('~/scripts/df_replace_nan.R')
+piu <-replace_nan(piu_raw)
 
 
 ```
 
 
 
+now only retina fetal 
 
+```{r}
+retina_fetal_spec_tx <- retina_spec_det %>% filter(Retina_Fetal.Tissue, !Retina_Adult.Tissue) %>% 
+    pull(transcript_id) %>% unique()
+retina_fetal_spec_gene <- filter(gtf, transcript_id %in% retina_fetal_spec_tx ) %>% pull(gene_name) %>% unique
 
+```
 
-
-
-
-
-
-
-
-
-
+Ok. Now, lets look what whats making these transcripts novel
 
 
 ```{r}
-filter(fetal_eye_novel_only, gene_name=='PAX6') %>% View
-shared_genes %>% sort 
-gff <- rtracklayer::readGFF('../eyeintegration_splicing/dl_data/all_tissues.combined_transdecoderCDS.gff3.gz')
-cds_df <- gff %>% as.data.frame %>% filter(type == 'CDS') %>% select(seqid, strand, start, end) %>% distinct %>% 
-    mutate(is.CDS=T)
+gtf_ano <- rtracklayer::readGFF('all_tissues.combined_NovelAno.gtf')
+rf_spec_tx_gtf <- filter(gtf_ano, transcript_id %in% retina_fetal_spec_tx, !grepl('TCON', gene_name))
+rf_spec_tx_gtf %>% select(novel_exon_id, novel_exon_type) %>% filter(!is.na(novel_exon_id)) %>% distinct %>% pull(novel_exon_type) %>% table 
+
+
+rf_spec_tx_gtf %>% filter(type  == 'transcript') %>% pull(transcript_type) %>% table 
+rf_spec_tx_gtf %>% filter(transcript_type == 'protein_coding') %>% 
+    select(novel_exon_id, exon_type, novel_exon_type) %>%filter(!is.na(novel_exon_id)) %>% distinct %>% pull(exon_type) %>% table 
+filter(rf_spec_tx_gtf, gene_name %in% retnet, transcript_type != 'protein_coding') %>% select(novel_exon_id)
+
+keep_codes <- 
+```
+
+```{r}
+novelfilt <- function(x){x %>%  select(novel_exon_id, exon_type, novel_exon_type) %>%filter(!is.na(novel_exon_id)) %>% distinct}
+rf_retnet <- filter(rf_spec_tx_gtf, gene_name %in% retnet) 
+rf_retnet %>% filter(type == 'transcript') %>% pull(transcript_type) %>% table 
+
+rf_retnet %>% filter(transcript_type == 'protein_coding') %>% novelfilt %>% pull(novel_exon_type) %>% table 
+rf_retnet %>% filter(transcript_type != 'protein_coding') %>% novelfilt %>% pull(novel_exon_type) %>% table 
+rf_retnet %>% filter(transcript_type == 'protein_coding') %>% novelfilt %>% pull(exon_type) %>% table 
+rf_retnet %>% filter(transcript_type != 'protein_coding') %>% novelfilt %>% pull(exon_type) %>% table 
+
 ```
 
