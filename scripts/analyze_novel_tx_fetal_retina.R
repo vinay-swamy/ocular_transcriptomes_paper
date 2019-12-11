@@ -33,7 +33,7 @@ load(eiad_quant_data)
 tcons2mstrg <- read_tsv(t2m_file)
 gtf <- rtracklayer::readGFF(gtf_file)
 gff3 <- rtracklayer::readGFF(gff3_file) %>% 
-    as_tibble  %>% mutate(ID=str_extract(ID,'TCONS_[0-9]+|ENSG[0-9]+'))
+    as_tibble  %>% mutate(ID=str_extract(ID,'DNTX_[0-9]+|ENSG[0-9]+'))
 retina_fetal_exp <- tcons2mstrg %>% select(transcript_id, Retina_Fetal.Tissue) %>% 
     filter(!is.na(Retina_Fetal.Tissue)) %>%
     pull(transcript_id)
@@ -114,7 +114,7 @@ for( i in c("early-late","early-mid", 'late-mid')){
     bottom <- conds[2]
     df <-  topTable(model_results, adjust.method = 'fdr', coef = i, number = 30000000, p.value = .05) %>% 
         as.data.frame %>% mutate(gene_name=rownames(.)) %>% 
-        filter(grepl('TCONS', gene_name), gene_name %in% retina_fetal_exp)
+        filter(grepl('DNTX', gene_name), gene_name %in% retina_fetal_exp)
     upregulated[[top]] <- c(upregulated[[top]],
                             df %>% filter(logFC >2) %>% arrange(desc(logFC)) %>%  pull(gene_name))
     upregulated[[bottom]] <- c(upregulated[[bottom]], 
