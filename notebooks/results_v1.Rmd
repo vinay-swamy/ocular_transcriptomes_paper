@@ -22,15 +22,20 @@ library(DT)
 library(RColorBrewer)
 library(UpSetR)
 library(ComplexHeatmap)
-sample_table <- read_tsv('sampleTableV6.tsv')
-load('clean_data/tissue_to_colors.Rdata')
+sample_table <- read_tsv('sampleTableFull.tsv')
+load('clean_data/rdata/tissue_to_colors.Rdata')
+
+tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
+
+
 ```
 
 # Transcriptome pipeline metrics. 
 
 ```{r overall_stats, fig.width=8, fig.height=8, message=FALSE, warning=FALSE}
-load('clean_data/transcriptome_pipeline_stats.Rdata')
-draw(construction_correlation_heatmap)
+load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
+
+
 ```
 I constructed transcriptomes for each tissue in the following manner: use Stringtie on each sample, merge gtfs using gencode annotation as a referenct for each sample by subtissue, using a TPM cutoff of of at least 1 TPM in each tissue in each tissue. I then evaluated this using our salmon expression metrics. I found that as expected transcript contruction is largely similar between subtissues of the same tissue type
 
@@ -41,7 +46,7 @@ I constructed transcriptomes for each tissue in the following manner: use String
 
 I define novel transcripts as a novel variation of a known gene. Novel transcripts contain 2 major classes: Modification of a previous exons to create novel, unannotated exons, or a rearrangment of known exons in a novel arrangment.
 ```{r Novel_Transcripts}
-load('clean_data/buildResultsSummary.Rdata')
+load('clean_data/rdata/buildResultsSummary.Rdata')
 color_list<- novel_transcripts_per_tissue$color
 names(color_list) <- novel_transcripts_per_tissue$body_location
 ggplot(data = novel_transcripts_per_tissue) +
@@ -59,8 +64,9 @@ ggplot(data = novel_transcripts_per_tissue) +
 Novel loci are  entirely novel transcribed regions of the genome, which can also be broken down into protein vs non protein coding.
 
 ```{r}
-color_list<- novel_loci_per_tissue$color
-names(color_list) <- novel_loci_per_tissue$body_location
+
+novel_loci_per_tissue <- novel_loci_per_tissue %>% filter(transcript_type!='color') %>% mutate(counts=as.numeric(counts))
+
 ggplot(data = novel_loci_per_tissue) +
     geom_col(aes(x=body_location, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
     scale_fill_manual(values = color_list) +
@@ -75,7 +81,7 @@ ggplot(data = novel_loci_per_tissue) +
 
 Novel transcripts are novel due to one or more novel/unannotated exon. A single novel exon can be associated with multiple transcripts, and can either fall in the Protein coding or untranslated region of a transcript, or be part of non coding trnascript.
 ```{r classification_of_novel_exons}
-complete_gtf <- rtracklayer::readGFF('~/NIH/occular_transcriptome_shiny/all_tissues.combined_NovelAno.gtf')
+complete_gtf <- rtracklayer::readGFF('/Volumes/data/eyeintegration_splicing/data/gtfs/all_tissues.combined_NovelAno.gtf')
 
 exon_info <- complete_gtf %>% select(id, nv_type_rc, exon_location) %>% filter(!is.na(id)) %>% distinct 
 table(exon_info$exon_location)
@@ -103,7 +109,7 @@ I then wanted to identify what biological process might be driving the formation
 3 major sources of transcriptional variation are alternative splicing - retained intron(RI) or alternative splice sites(A3SS/A5SS),   Alternative promoters(novel_TSS), and alternative  polyadenylation.(novel_TES). Novel exons are exons that are some combination of the above process, or completely novel regions of transcribed sequence.
 
 ```{r}
-load('../eyeintegration_splicing/old_data_0901019/data/rdata/novel_exon_classification.Rdata')
+load('/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata')
 event_counts <-  novel_exons_TSES %>% pull(nv_type_rc) %>% table %>% {tibble(type=names(.), count=.)}
 ggplot(event_counts)+ 
   geom_col(aes(x=type, y=count, fill=type))+

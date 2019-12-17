@@ -10,7 +10,7 @@ args <- c('/Volumes/data/occular_transcriptomes_paper/',
           'data/misc/TCONS2MSTRG.tsv', 
           '/Volumes/data/occular_transcriptomes_paper/clean_data/tissue_to_colors.Rdata',
           '/Volumes/data/occular_transcriptomes_paper/clean_data/buildResultsSummary.Rdata')
-args <- commandArgs(trailingOnly = T)
+args <- commandArgs(trailingOnly = T) 
 working_dir <- args[1]
 data_dir <- args[2]
 exon_classifcation_file <- args[3]
@@ -73,8 +73,8 @@ novel_loci_per_tissue <- lapply(subtissues, function(i) tc2m_novel_loci %>%
     summarise(noncoding_tx=mean(num_nc), pc_tx=mean(num_pc)) %>% left_join(tissue_color_mapping_df) %>% 
     mutate(body_location=replace(body_location, body_location == 'Body', 'Body(avg)'),
            body_location=replace(body_location, body_location == 'Brain', 'Brain(avg)')
-    ) %>% 
-    gather(transcript_type, counts, -body_location)
+    ) #%>% 
+    #gather(transcript_type, counts, -body_location)
     
 # color_list<- novel_loci_per_tissue$color
 # names(color_list) <- novel_loci_per_tissue$body_location
@@ -121,36 +121,6 @@ novel_exon_location_analysis <- list(protein_coding=filter(novel_exons_ano, is.P
 
 
 save(novel_transcripts_per_tissue, novel_loci_per_tissue, novel_exon_location_analysis, file=data_to_plot)
-
-# 
-# 
-# 
-# pc_dist <- reduce(novel_exon_location_analysis, setdiff)
-# nc_dist <- reduce(novel_exon_location_analysis[c('non_coding', 'UTR_change', 'protein_coding')], setdiff)
-# utr_dist <- reduce(novel_exon_location_analysis[c('UTR_change','non_coding',  'protein_coding')], setdiff)
-# 
-# 
-# changing_exons <- setdiff(unlist(novel_exon_location_analysis), c(pc_dist, nc_dist, utr_dist))
-# eye_tissues <- c('Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue', 
-#                  'Retina_Adult.Tissue', 'Retina_Fetal.Tissue', 
-#                  'RPE_Adult.Tissue', 'RPE_Fetal.Tissue')
-# eye_tx <- tcons2mstrg %>% select(transcript_id, eye_tissues) %>% filter( rowSums(apply(.,2,is.na))<6) %>% pull(transcript_id)
-# 
-# filter(novel_exons_tx_added,transcript_id %in% eye_tx, id %in% changing_exons) %>% group_by(gene_name) %>% 
-#     summarise(count=n()) %>% filter(count>1) %>% 
-#     pull(gene_name ) %>% unique() %>% clipr::write_clip()
-
-
-
-
-
-
-# novel exons, Promoter, terminal, or splicing
-
-
-
-
-
 
 
 
