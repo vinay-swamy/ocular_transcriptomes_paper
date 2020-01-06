@@ -3,13 +3,13 @@ library(ComplexHeatmap)
 library(RColorBrewer)
 library(viridis)
 library(matrixStats)
-# args <- c('~/NIH/occular_transcriptomes_paper/', '~/NIH/eyeintegration_splicing/dl_data/all_tissues_psi.tsv.gz', 
-#           '~/NIH/eyeintegration_splicing/sampleTableV6.tsv', 
-#           '~/NIH/eyeintegration_splicing/dl_data/gfc_TCONS_to_st_MSTRG.tsv.gz', 
-#           '~/NIH/occular_transcriptomes_paper/clean_data/V1_exon_classification_data.Rdata',
-#           '~/NIH/occular_transcriptomes_paper/all_tissues.combined.gtf',
-#           '~/NIH/occular_transcriptomes_paper/clean_data/tissue_to_colors.Rdata',
-#           '~/NIH/occular_transcriptomes_paper/clean_data/splicing_analysis.Rdata')
+args <- c('/Volumes/data/occular_transcriptomes_paper/', '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissues_psi.tsv',
+          '/Volumes/data/eyeintegration_splicing/sampleTableFull.tsv',
+          '~/NIH/occular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv',
+          '/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata',
+          '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
+          '/Volumes/data/occular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata',
+          '/Volumes/data/occular_transcriptomes_paper/testing/sphm.Rdata')
 args <- commandArgs(trailingOnly = T)
 wd <- args[1]
 psi_file <- args[2]
@@ -19,16 +19,47 @@ exon_classification_file <- args[5]
 gtf_file <- args[6]
 color_df <- args[7]
 outfile <- args[8]
-save(args, file='tmp/sphm_args.rdata')
+#save(args, file='tmp/sphm_args.rdata')
 setwd(wd)
 
 tcons2mstrg <- read_tsv(tc2mstrg_file)
 load(exon_classification_file)
-psi_tab <- read_tsv(psi_file)
+psi_tab <- read_tsv(psi_file) %>% mutate(start=start + 1)
 colnames(psi_tab) <- str_remove(colnames(psi_tab), '_psi')
 full_gtf <- rtracklayer::readGFF(gtf_file)
 load(color_df)
 sample_table <- read_tsv(sample_file) %>% left_join(tissue_color_mapping_df) %>%  filter(sample %in% colnames(psi_tab))
+
+psi_tab[is.na(psi_tab)] <- 0
+set.seed(34543)
+novel_exons <- full_gtf %>% filter(!is.na(novel_exon_type)) %>% select(seqid,strand, start, end) %>% distinct 
+mat <- psi_tab %>% inner_join(novel_exons) %>% .[,-(1:4)] %>% .[sample_table$sample]
+#psi_tab[,-(1:4)] %>% filter(rowSums(.)< (1*(ncol(.)-3)), rowSums(.)>(.05*ncol(.))) %>% sample_n(10000) %>% .[,sample_table$sample] %>% t()
+
+ht_opt(fast_hclust = TRUE)
+
+tcolors <- tissue_color_mapping_df$color
+names(tcolors) <- tissue_color_mapping_df$body_location
+color_list <- list( body_location=tcolors)
+
+col_list <- tissue_color_mapping_df$color
+names(col_list) <- tissue_color_mapping_df$body_location
+body_location <- sample_table$body_location
+ha <- HeatmapAnnotation(body_location=sample_table$body_location, col = color_list,which = 'column')
+png('clean_data/sphm.png',width = 8, height = 4, units = 'in' )
+hm <- Heatmap(mat,col = viridis(100)  ,name = 'PSI', top_annotation = ha, show_row_dend = F, show_column_dend =F,
+              heatmap_height = unit(20,'cm'), heatmap_width = unit(40,'cm'), 
+              show_column_names = F, show_row_names = F)
+splicing_heatmap <- draw(hm)
+dev.off()
+#splicing_heatmap
+
+save(splicing_heatmap, splicing_sum,undetected_exons_by_event, file = outfile)
+
+
+
+
+
 
 
 
@@ -72,31 +103,8 @@ summarise_splicing_not_found <- function(s_tissue){
 }
 subtissues <- filter(sample_table, !subtissue %in%c('Cornea_Fetal.Tissue', 'synth')) %>% pull(subtissue) %>% unique
 not_det_splicing_types <- lapply(subtissues, summarise_splicing_not_found)
-undetected_exons_by_event <-  not_det_splicing_types %>% do.call(rbind, .) %>% as_tibble() %>% gather(event_type, misclassed_events)
+undetected_exons_by_event <-  not_det_splicing_types %>% do.call(rbind, .) %>% as_tibble() %>% 
+    gather(event_type, misclassed_events) %>% group_by(event_type) %>% summarise(total_missed=sum(missclassed_events))
 
 
 
-
-psi_tab[is.na(psi_tab)] <- 0
-set.seed(34543)
-mat <- psi_tab[,-(1:4)] %>% filter(rowSums(.)< (1*(ncol(.)-3)), rowSums(.)>(.05*ncol(.))) %>% sample_n(10000) %>% .[,sample_table$sample] %>% t()
-
-ht_opt(fast_hclust = TRUE)
-
-tcolors <- tissue_color_mapping_df$color
-names(tcolors) <- tissue_color_mapping_df$body_location
-color_list <- list( body_location=tcolors)
-
-col_list <- tissue_color_mapping_df$color
-names(col_list) <- tissue_color_mapping_df$body_location
-body_location <- sample_table$body_location
-ha <- HeatmapAnnotation(body_location=sample_table$body_location, col = color_list,which = 'row')
-png('clean_data/sphm.png',width = 8, height = 4, units = 'in' )
-hm <- Heatmap(mat,col = viridis(100)  ,name = 'PSI', right_annotation = ha, show_row_dend = F, show_column_dend =F,
-              heatmap_height = unit(20,'cm'), heatmap_width = unit(40,'cm'), 
-              show_column_names = F, show_row_names = F)
-splicing_heatmap <- draw(hm)
-dev.off()
-#splicing_heatmap
-
-save(splicing_heatmap, splicing_sum,undetected_exons_by_event, file = outfile)
