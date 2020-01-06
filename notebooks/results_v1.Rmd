@@ -110,9 +110,11 @@ I then wanted to identify what biological process might be driving the formation
 
 ```{r}
 load('/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata')
+
+
 event_counts <-  novel_exons_TSES %>% pull(nv_type_rc) %>% table %>% {tibble(type=names(.), count=.)}
-ggplot(event_counts)+ 
-  geom_col(aes(x=type, y=count, fill=type))+
+ggplot(event_counts) + 
+  geom_col(aes(x=type, y=count, fill=type)) +
   theme_minimal()
 
 ```
