@@ -45,8 +45,7 @@ gff3_file=data_dir + 'data/seqs/transdecoder_results/all_tissues.combined_transd
 tcons2mstrg=data_dir + 'data/misc/TCONS2MSTRG.tsv'
 
 rule all:
-    #input:subtissue_to_sample('Retina_Fetal.Tissue', sd_salmonexp), subtissue_to_sample('Lens_Stem.Cell.Line', sd_salmonexp), 'trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3'
-    input: 'notebooks/results_v2.html', 'gffcomp_test/all_samples.combined.gtf'
+    input: 'notebooks/results_v2.html'
 
 rule transcriptome_pipeline_stats:
     input:  t2m=tcons2mstrg,
@@ -118,81 +117,9 @@ tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.
 
 '''
 
-rule setup_salmon_exp:
-    output: lens='salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab', ret='salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab', st= 'salmon_experiment/sampletabSE.tsv'
-    shell:
-        '''
-        tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.Tissue/SRS897012/quant.sf | grep Retina_Fetal.Tissue - | cut -f1 > salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab
-
-        tail -n+2   /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Lens_Stem.Cell.Line/SRS1747747/quant.sf | grep  Lens_Stem.Cell.Line  - | cut -f1 > salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab
-
-        grep Retina_Fetal.Tissue sampleTableFull.tsv > salmon_experiment/sampletabSE.tsv
-        grep Lens_Stem.Cell.Line sampleTableFull.tsv >> salmon_experiment/sampletabSE.tsv
-
-        '''
-
-
-rule build_salmon_index_no_novel:
-    input:tx_to_remove='salmon_experiment/{tissue}_tx_to_remove.tab', fasta= data_dir + 'data/seqs/{tissue}_tx.fa'
-    output:outfasta='salmon_experiment/{tissue}.fa', index= directory('salmon_experiment/{tissue}')
-    shell:
-        ''' 
-        python3 scripts/remove_entries_from_fasta.py {input.fasta} {input.tx_to_remove} {output.outfasta}
-        module load {salmon_version}
-        salmon index -t {output.outfasta} -i {output.index} --type quasi --perfectHash -k 31
-        '''
-
-rule run_salmon:
-    input: fastqs=lambda wildcards: [fql+f'fastq_files/{wildcards.sampleID}_1.fastq.gz',fql+f'fastq_files/{wildcards.sampleID}_2.fastq.gz'] if sd_salmonexp[wildcards.sampleID]['paired'] else fql+f'fastq_files/{wildcards.sampleID}.fastq.gz',\
-        index='salmon_experiment/{tissue}'
-    params: cmd=lambda wildcards: salmon_input(wildcards.sampleID,sd_salmonexp,fql),\
-     outdir=lambda wildcards: f'salmon_experiment/quant/{wildcards.tissue}/{wildcards.sampleID}'
-    output: 'salmon_experiment/quant/{tissue}/{sampleID}/quant.sf'
-    shell:
-        '''
-        id={wildcards.sampleID}
-        module load {salmon_version}
-        salmon quant -p 8 -i {input.index} -l A --gcBias --seqBias --validateMappings {params.cmd} -o {params.outdir}
-        '''
-
-
-
-rule ORF_exp:
-    input:gtf= data_dir + 'data/gtfs/raw_tissue_gtfs/Retina_Fetal.Tissue.combined.gtf'
-    output:'trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3'
-    shell:
-        '''
-        rm -rf TransDecoder
-        git clone https://github.com/TransDecoder/TransDecoder.git
-        cd TransDecoder
-        module load {TransDecoder_version}
-        mkdir -p ../trandecode_exp/tr_dec
-        ./util/gtf_genome_to_cdna_fasta.pl {input.gtf} ../ref/gencode_genome.fa > transcripts.fasta
-        ./util/gtf_to_alignment_gff3.pl {input.gtf}> transcripts.gff3
-        TransDecoder.LongOrfs -t transcripts.fasta
-        TransDecoder.Predict --single_best_only -t transcripts.fasta
-        ./util/cdna_alignment_orf_to_genome_orf.pl \
-            transcripts.fasta.transdecoder.gff3 \
-            transcripts.gff3 \
-            transcripts.fasta > ../trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3
-        '''
-
-
-rule gffcompare_all:
-    output:'gffcomp_test/all_samples.combined.gtf'
-    shell:
-        '''
-        module load gffcompare 
-        input=`ls /data/swamyvs/eyeintegration_splicing/data/gtfs/raw_tissue_gtfs/*.combined.gtf | tr '\\n' ' '`
-        gffcompare -r /data/swamyvs/ref/gencode_comp_ano.gtf -o gffcomp_test/all_samples $input
-
-        '''
-
-
-
 
 rule knit_notebooks:
-    input:expand(f'{working_dir}{{files}}', files=['clean_data/rdata/buildResultsSummary.Rdata', 'clean_data/rdata/splicing_analysis_results.Rdata', 'clean_data/rdata/fetal_novel_de_results.Rdata', 'clean_data/rdata/fetal_novel_de_hm.Rdata','clean_data/rdata/transcriptome_pipeline_stats.Rdata'])
+    input:expand(f'{working_dir}{{filesc}}', files=['clean_data/rdata/buildResultsSummary.Rdata', 'clean_data/rdata/splicing_analysis_results.Rdata', 'clean_data/rdata/fetal_novel_de_results.Rdata', 'clean_data/rdata/fetal_novel_de_hm.Rdata','clean_data/rdata/transcriptome_pipeline_stats.Rdata'])
 
     output: 'notebooks/results_v2.html'
     shell:
@@ -200,3 +127,76 @@ rule knit_notebooks:
         module load {R_version}
         Rscript ~/scripts/render_rmd.R notebooks/results_v2.Rmd
         '''
+
+
+
+# rule setup_salmon_exp:
+#     output: lens='salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab', ret='salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab', st= 'salmon_experiment/sampletabSE.tsv'
+#     shell:
+#         '''
+#         tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.Tissue/SRS897012/quant.sf | grep Retina_Fetal.Tissue - | cut -f1 > salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab
+
+#         tail -n+2   /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Lens_Stem.Cell.Line/SRS1747747/quant.sf | grep  Lens_Stem.Cell.Line  - | cut -f1 > salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab
+
+#         grep Retina_Fetal.Tissue sampleTableFull.tsv > salmon_experiment/sampletabSE.tsv
+#         grep Lens_Stem.Cell.Line sampleTableFull.tsv >> salmon_experiment/sampletabSE.tsv
+
+#         '''
+
+
+# rule build_salmon_index_no_novel:
+#     input:tx_to_remove='salmon_experiment/{tissue}_tx_to_remove.tab', fasta= data_dir + 'data/seqs/{tissue}_tx.fa'
+#     output:outfasta='salmon_experiment/{tissue}.fa', index= directory('salmon_experiment/{tissue}')
+#     shell:
+#         ''' 
+#         python3 scripts/remove_entries_from_fasta.py {input.fasta} {input.tx_to_remove} {output.outfasta}
+#         module load {salmon_version}
+#         salmon index -t {output.outfasta} -i {output.index} --type quasi --perfectHash -k 31
+#         '''
+
+# rule run_salmon:
+#     input: fastqs=lambda wildcards: [fql+f'fastq_files/{wildcards.sampleID}_1.fastq.gz',fql+f'fastq_files/{wildcards.sampleID}_2.fastq.gz'] if sd_salmonexp[wildcards.sampleID]['paired'] else fql+f'fastq_files/{wildcards.sampleID}.fastq.gz',\
+#         index='salmon_experiment/{tissue}'
+#     params: cmd=lambda wildcards: salmon_input(wildcards.sampleID,sd_salmonexp,fql),\
+#      outdir=lambda wildcards: f'salmon_experiment/quant/{wildcards.tissue}/{wildcards.sampleID}'
+#     output: 'salmon_experiment/quant/{tissue}/{sampleID}/quant.sf'
+#     shell:
+#         '''
+#         id={wildcards.sampleID}
+#         module load {salmon_version}
+#         salmon quant -p 8 -i {input.index} -l A --gcBias --seqBias --validateMappings {params.cmd} -o {params.outdir}
+#         '''
+
+
+
+# rule ORF_exp:
+#     input:gtf= data_dir + 'data/gtfs/raw_tissue_gtfs/Retina_Fetal.Tissue.combined.gtf'
+#     output:'trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3'
+#     shell:
+#         '''
+#         rm -rf TransDecoder
+#         git clone https://github.com/TransDecoder/TransDecoder.git
+#         cd TransDecoder
+#         module load {TransDecoder_version}
+#         mkdir -p ../trandecode_exp/tr_dec
+#         ./util/gtf_genome_to_cdna_fasta.pl {input.gtf} ../ref/gencode_genome.fa > transcripts.fasta
+#         ./util/gtf_to_alignment_gff3.pl {input.gtf}> transcripts.gff3
+#         TransDecoder.LongOrfs -t tran scripts.fasta
+#         TransDecoder.Predict --single_best_only -t transcripts.fasta
+#         ./util/cdna_alignment_orf_to_genome_orf.pl \
+#             transcripts.fasta.transdecoder.gff3 \
+#             transcripts.gff3 \
+#             transcripts.fasta > ../trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3
+#         '''
+
+
+# rule gffcompare_all:
+#     output:'gffcomp_test/all_samples.combined.gtf'
+#     shell:
+#         '''
+#         module load gffcompare 
+#         input=`ls /data/swamyvs/eyeintegration_splicing/st_out/*.gtf | tr '\\n' ' '`
+#         gffcompare -r /data/swamyvs/ref/gencode_comp_ano.gtf -o gffcomp_test/all_samples $input
+
+#         '''
+
