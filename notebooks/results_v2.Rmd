@@ -1,0 +1,150 @@
+---
+title: 'de novo Occular transcriptomes: results'
+output:
+  html_notebook: default
+  github_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup}
+#knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
+knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
+#knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
+```
+
+
+
+
+
+```{r prep}
+library(tidyverse)
+library(DT)
+library(RColorBrewer)
+library(UpSetR)
+library(ComplexHeatmap)
+sample_table <- read_tsv('sampleTableFull.tsv')
+load('clean_data/rdata/tissue_to_colors.Rdata')
+
+tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
+load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
+
+```
+
+
+# Results 
+
+## construction of transcriptomes across the body 
+```{r transcriptome_pipeline_stats}
+#  novel_loci bar graph, novel isoform bargraphs initial tx count, final tx count
+load('clean_data/rdata/buildResultsSummary.Rdata')
+color_list<- novel_transcripts_per_tissue$color
+names(color_list) <- novel_transcripts_per_tissue$body_location
+ggplot(data = novel_transcripts_per_tissue) +
+    geom_col(aes(x=body_location, y=novel_transcript_count, fill=body_location)) +
+    scale_fill_manual(values = color_list)+
+    ggtitle('Novel Isoforms built in occular tissues')+
+    ylab('number of novel transcripts')+
+    theme(axis.text.x=element_text(angle=45, hjust = 1))
+novel_loci_per_tissue <- novel_loci_per_tissue %>% filter(transcript_type!='color') %>% mutate(counts=as.numeric(counts))
+
+ggplot(data = novel_loci_per_tissue) +
+    geom_col(aes(x=body_location, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+    scale_fill_manual(values = color_list) +
+    scale_alpha_discrete(range=c(.5,1)) +
+    ggtitle('Novel Loci constructed in Occular Tissues') +
+    ylab('number of novel loci detected') +
+    theme(axis.text.x=element_text(angle=45, hjust = 1))
+
+#m
+```
+
+
+## Novel exons in de novo transcriptomes
+
+### novel exon counts 
+```{r}
+load('/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata')
+gtf <- rtracklayer::readGFF('/Volumes/data/eyeintegration_splicing/data/gtfs/all_tissues.combined_NovelAno.gtf')
+
+gtf_exons <- gtf %>% filter(type == 'exon')
+event_counts <-  novel_exons_TSES %>% pull(nv_type_rc) %>% table %>% {tibble(type=names(.), count=.)}
+ggplot(event_counts) + 
+  geom_col(aes(x=type, y=count, fill=type)) + 
+  theme_minimal()
+
+```
+
+
+
+
+### splicing heatmap
+
+```{r}
+
+```
+
+
+
+
+
+
+### sample mapping rates 
+
+
+```{r}
+
+```
+
+
+
+
+
+## novel transcripts in ocular tissues 
+
+
+
+### upset plot of tx contruction in ocular tissues 
+```{r}
+
+```
+
+
+
+
+
+### PIU
+```{r}
+
+```
+
+
+### exon locations 
+```{r}
+
+```
+
+
+### enrichment of genes associated with ocular biology
+
+
+## novel loci in fetal tissues 
+
+### DE?
+
+
+### heatmap 
+
+
+
+### exp over time 
+
+
+
+
+
+
+
+
+
