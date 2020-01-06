@@ -32,7 +32,7 @@ R_version= config['R_version']
 bedtools_version= config['bedtools_version'] 
 TransDecoder_version=config['TransDecoder_version']
 
-sd_salmonexp= readSampleFile('salmon_experiment/sampletabSE.tsv')
+# sd_salmonexp= readSampleFile('salmon_experiment/sampletabSE.tsv')
 
 working_dir=config['working_dir']
 data_dir=config['data_dir']
@@ -101,6 +101,25 @@ rule splicing_hm:
         Rscript scripts/splicing_heatmap.R {working_dir} {input.psi_file} {sample_file} {input.tc2mstrg} {input.classfile} {gtf_file} {input.color_df} {output}
         '''
 
+
+rule novel_isoforms_ocular_tissues:
+    input: quant = data_dir + 'data/all_tissue_quant.Rdata', gtf_ano_file = data_dir + 'data/gtfs/all_tissues.combined_NovelAno.gtf'
+    output: outdata= working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/novel_isoforms_ocular_tissues.R \
+            {working_dir} \
+            {data_dir} \
+            {input.gtf_ano_file} \
+            {exon_classification_file} \
+            {sample_file} \
+            {tcons2mstrg} \
+            {input.quant} \
+            {output.outdata}
+            
+        '''
+
 rule novel_tx_in_fetal_retina_analysis:
     input:eiad='clean_data/EiaD_quant.Rdata', tc2mstrg=tcons2mstrg , gff3=gff3_file
     output:working_dir+ 'clean_data/rdata/fetal_novel_de_results.Rdata',working_dir+ 'clean_data/fetal_de_novel_tx.txt', working_dir+ 'clean_data/rdata/fetal_novel_de_hm.Rdata'
@@ -119,8 +138,13 @@ tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.
 
 
 rule knit_notebooks:
-    input:expand(f'{working_dir}{{filesc}}', files=['clean_data/rdata/buildResultsSummary.Rdata', 'clean_data/rdata/splicing_analysis_results.Rdata', 'clean_data/rdata/fetal_novel_de_results.Rdata', 'clean_data/rdata/fetal_novel_de_hm.Rdata','clean_data/rdata/transcriptome_pipeline_stats.Rdata'])
-
+    input: \
+    working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', \
+    working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', \
+    working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
+    #working_dir + 'clean_data/rdata/splicing_analysis_results.Rdata', \
+    #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
+    #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
     output: 'notebooks/results_v2.html'
     shell:
         '''

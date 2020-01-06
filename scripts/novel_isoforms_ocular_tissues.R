@@ -3,18 +3,21 @@ library(enrichR)
 library(UpSetR)
 library(matrixStats)
 library(ggpubr)
-args <- c('/Volumes/data/occular_transcriptomes_paper/',
-          '/Volumes/data/eyeintegration_splicing/',
-          '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
-          '/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata',
-          '/Volumes/data/eyeintegration_splicing/sampleTableFull.tsv',
-          '~/NIH/occular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv', 
-          '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissue_quant.Rdata')
+# args <- c('/Volumes/data/ocular_transcriptomes_paper/',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/',
+#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/data/rdata/novel_exon_classification.Rdata',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv',
+#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv', 
+#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissue_quant.Rdata',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/novel_isoforms.Rdata')
+
+
 
 args <- commandArgs(trailingOnly = T)
 
 
-
+save(args, file = 'testing/niot_args.rdata')
 working_dir <- args[1] 
 data_dir <- args[2]
 gtf_file <- args[3]
@@ -67,11 +70,11 @@ novel_eye_tx_by_tissue <- novel_tx_by_tissue
 
 novel_tx_by_tissue[['Brain(all)']] <- novel_brain_tx_det$transcript_id
 novel_tx_by_tissue[['Body(all)']] <- novel_body_det$transcript_id
-upset(fromList(novel_eye_tx_by_tissue),nintersects = 20, nsets = length(novel_eye_tx_by_tissue), order.by = 'freq')
+#upset(fromList(novel_eye_tx_by_tissue),nintersects = 20, nsets = length(novel_eye_tx_by_tissue), order.by = 'freq')
 
 #upset(fromList(novel_tx_by_tissue),nintersects = 20, nsets = length(novel_eye_tx_by_tissue), order.by = 'freq')
-
-
+novel_eye_fetal <- novel_eye_tx_by_tissue[grepl('Fetal', names(novel_eye_tx_by_tissue))]
+upset(fromList(novel_eye_fetal))
 
 
 # piu plots 
@@ -115,13 +118,18 @@ calc_isoform_percentage <- function(t_tissue){
     
 }
 
-
+replace_nan <- function(df) {
+    df_fixed <- lapply(colnames(df),function(col) pull(df, col) %>%  
+                           {replace(., is.nan(.), 0)}) %>% bind_cols %>% as_tibble
+    colnames(df_fixed) <- colnames(df)
+    return(df_fixed)
+    
+}
 
 
 
 piu_raw <- lapply(colnames(counts_eye_by_tissue)[-(1:2)], calc_isoform_percentage) %>% reduce(left_join)
 
-source('~/scripts/df_replace_nan.R')
 piu <-replace_nan(piu_raw)
 
 
@@ -220,7 +228,7 @@ ggplot(location_df) +
     facet_wrap(~ tissue) + 
     ylab('percentage of novel exons') + 
     ggtitle('location of novel exons in occular tissues')
-save(novel_eye_tx_by_tissue, piu_df, location_df, file = clean_outdata)
+save(novel_tx_by_tissue, novel_eye_tx_by_tissue, piu_df, location_df, file = clean_outdata)
 
 
 

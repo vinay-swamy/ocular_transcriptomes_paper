@@ -9,7 +9,7 @@ output:
 
 ```{r setup}
 #knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
-knitr::opts_knit$set(root.dir = '/Volumes/data/occular_transcriptomes_paper/')
+knitr::opts_knit$set(root.dir = '/Volumes/data/ocular_transcriptomes_paper/')
 #knitr::opts_knit$set(root.dir = '/data/swamyvs/occular_transcriptomes_paper')
 knitr::opts_chunk$set(echo = F, message = F, warning = F)
 ```
@@ -24,12 +24,13 @@ library(DT)
 library(RColorBrewer)
 library(UpSetR)
 library(ComplexHeatmap)
-sample_table <- read_tsv('sampleTableFull.tsv')
+library(ggpubr)
+sample_table <- read_tsv('sampleTableFull.tsv') %>% filter(subtissue != 'synth')
 load('clean_data/rdata/tissue_to_colors.Rdata')
 
 tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
 load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
-
+subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
 ```
 
 
@@ -65,8 +66,8 @@ ggplot(data = novel_loci_per_tissue) +
 
 ### novel exon counts 
 ```{r}
-load('/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata')
-gtf <- rtracklayer::readGFF('/Volumes/data/eyeintegration_splicing/data/gtfs/all_tissues.combined_NovelAno.gtf')
+load('/Volumes/data/ocular_transcriptomes_pipeline/data/rdata/novel_exon_classification.Rdata')
+gtf <- rtracklayer::readGFF('/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/all_tissues.combined_NovelAno.gtf')
 
 gtf_exons <- gtf %>% filter(type == 'exon')
 event_counts <-  novel_exons_TSES %>% pull(nv_type_rc) %>% table %>% {tibble(type=names(.), count=.)}
@@ -82,7 +83,25 @@ ggplot(event_counts) +
 ### splicing heatmap
 
 ```{r}
-
+df <- sample_mapping_rates %>% 
+  left_join(subtissue_to_bodyloc, .) %>% 
+  group_by(body_location) %>% 
+  summarise(mean_med_diff=mean(med_diff), mean_raw_tx_count=mean(raw), mean_final_tx_count=mean(final)) %>% 
+  arrange(mean_med_diff) %>% 
+  mutate(body_location=case_when(body_location == 'Body' ~ 'Body(avg)', 
+                                 body_location == 'Brain'~ 'Brain(avg)' , 
+                                 TRUE ~ body_location))
+  
+ggplot(data=df) + 
+  geom_col(aes(x=factor(body_location,levels = body_location,  ordered = T),y=mean_med_diff, fill=body_location)) + 
+  scale_fill_manual(values = color_list) +
+  xlab('subtissue') + 
+  ylab('median change in Salmon mapping rate')+
+  ggtitle('Changes in mapping rate between tissue specific de novo \ntranscriptomes and gencode V28 quantification ')+
+  coord_flip() + 
+  theme_minimal()
+  
+  
 ```
 
 
@@ -94,6 +113,7 @@ ggplot(event_counts) +
 
 
 ```{r}
+
 
 ```
 
@@ -107,7 +127,8 @@ ggplot(event_counts) +
 
 ### upset plot of tx contruction in ocular tissues 
 ```{r}
-
+load('clean_data/rdata/novel_isoforms.Rdata')
+upset(fromList(novel_eye_tx_by_tissue),nintersects = 20, nsets = length(novel_eye_tx_by_tissue), order.by = 'freq')
 ```
 
 
@@ -117,12 +138,22 @@ ggplot(event_counts) +
 ### PIU
 ```{r}
 
+p <- ggboxplot(piu_df, x='stage', y='piu', color = 'tissue',
+               title ='Comparison of percent isoform usage(piu) of novel \ntranscripts in fetal and adult eye tissues')+
+    stat_compare_means(label.y = 1.1) +
+    scale_color_manual(values = c('green', 'blue', 'red'))
+facet(p,facet.by = 'tissue')+
+    theme_minimal()
 ```
 
 
 ### exon locations 
 ```{r}
-
+ggplot(location_df) + 
+    geom_bar(aes(x=age, fill=location, y=count), position = 'fill', stat = 'identity' ) +
+    facet_wrap(~ tissue) + 
+    ylab('percentage of novel exons') + 
+    ggtitle('location of novel exons in occular tissues')
 ```
 
 
