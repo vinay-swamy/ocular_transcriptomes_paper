@@ -17,6 +17,7 @@ library(matrixStats)
 library(ggpubr)
 setwd('~/NIH/occular_transcriptomes_paper/')
 load('clean_data/V1_exon_classification_data.Rdata')
+
 gtf <- rtracklayer::readGFF('all_tissues.combined_NovelAno.gtf')
 anno_tab <- gtf %>% filter(type == "transcript") %>% select(transcript_id, gene_name, oId)
 tc2ms <- read_tsv('gfc_TCONS_to_st_MSTRG.tsv') %>% filter(!transcript_id %in% novel_loci_distinct$transcript_id)
