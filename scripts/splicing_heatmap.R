@@ -3,13 +3,14 @@ library(ComplexHeatmap)
 library(RColorBrewer)
 library(viridis)
 library(matrixStats)
-args <- c('/Volumes/data/occular_transcriptomes_paper/', '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissues_psi.tsv',
-          '/Volumes/data/eyeintegration_splicing/sampleTableFull.tsv',
-          '~/NIH/occular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv',
-          '/Volumes/data/eyeintegration_splicing/data/rdata/novel_exon_classification.Rdata',
-          '~/NIH/occular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata',
-          '/Volumes/data/occular_transcriptomes_paper/testing/sphm.Rdata')
+# args <- c('/Volumes/data/ocular_transcriptomes_paper/', '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissues_psi.tsv',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv',
+#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/data/rdata/novel_exon_classification.Rdata',
+#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata',
+#           '/Volumes/data/ocular_transcriptomes_paper/testing/sphm.Rdata')
+
 args <- commandArgs(trailingOnly = T)
 wd <- args[1]
 psi_file <- args[2]
@@ -46,15 +47,14 @@ col_list <- tissue_color_mapping_df$color
 names(col_list) <- tissue_color_mapping_df$body_location
 body_location <- sample_table$body_location
 ha <- HeatmapAnnotation(body_location=sample_table$body_location, col = color_list,which = 'column')
-png('clean_data/sphm.png',width = 8, height = 4, units = 'in' )
-hm <- Heatmap(mat,col = viridis(100)  ,name = 'PSI', top_annotation = ha, show_row_dend = F, show_column_dend =F,
+tiff(outfile,width = 20, height = 10, units = 'in', res=300)
+hm <- Heatmap(mat, col = viridis(100)  ,name = 'PSI', top_annotation = ha, show_row_dend = F, show_column_dend =F,
               heatmap_height = unit(20,'cm'), heatmap_width = unit(40,'cm'), 
               show_column_names = F, show_row_names = F)
 splicing_heatmap <- draw(hm)
 dev.off()
 #splicing_heatmap
 
-save(splicing_heatmap, splicing_sum,undetected_exons_by_event, file = outfile)
 
 
 
@@ -63,48 +63,49 @@ save(splicing_heatmap, splicing_sum,undetected_exons_by_event, file = outfile)
 
 
 
-MIN_PSI <- .1
-summarise_splicing <- function(s_tissue){
-    ctab <- tcons2mstrg %>% select(transcript_id, !!s_tissue) %>% filter(!is.na(.[,s_tissue]))
-    exons_in_tissue <- full_gtf %>% filter(transcript_id %in% ctab$transcript_id) %>% 
-        select(seqid, strand, start, end) %>% distinct
-    novel_exons_in_tissue_splicing <- novel_exons_TSES %>% inner_join(exons_in_tissue) %>% 
-        filter(!nv_type_rc %in% c( 'novel_TES', 'novel_TSS'))
-    psi_tissue <- filter(sample_table, subtissue == s_tissue) %>% pull(sample) %>% 
-        {select(psi_tab, seqid, strand, start, end, .)} %>% mutate( start=start+1) %>% 
-        inner_join(novel_exons_in_tissue_splicing,.)
-    meta_cols <- colnames(novel_exons_in_tissue_splicing)
-    psi_only <- psi_tissue %>% select(-meta_cols)
-    not_det <- psi_only %>% apply(2, is.na) %>% {rowSums(.) == ncol(.) }
-    psi_tissue_det <- psi_tissue %>% filter(!not_det) %>% mutate(avg_psi= select(., -meta_cols) %>% rowMeans())
-    tibble(num_const_exons=nrow(novel_exons_in_tissue_splicing), num_det_rmats=nrow(psi_tissue_det),
-           num_exp_psi=psi_tissue_det %>% filter(avg_psi >= MIN_PSI ) %>% nrow)
-}
-subtissues <- filter(sample_table, !subtissue %in%c('Cornea_Fetal.Tissue', 'synth')) %>% pull(subtissue) %>% unique
-splicing_sum <- lapply(subtissues, summarise_splicing) %>% bind_rows %>% mutate(subtissue=subtissues) %>% 
-    select(subtissue,everything())
 
-
-
-summarise_splicing_not_found <- function(s_tissue){
-    ctab <- tcons2mstrg %>% select(transcript_id, !!s_tissue) %>% filter(!is.na(.[,s_tissue]))
-    exons_in_tissue <- full_gtf %>% filter(transcript_id %in% ctab$transcript_id) %>% 
-        select(seqid, strand, start, end) %>% distinct
-    novel_exons_in_tissue_splicing <- novel_exons_TSES %>% inner_join(exons_in_tissue) %>% 
-        filter(!nv_type_rc %in% c( 'novel_TES', 'novel_TSS'))
-    psi_tissue <- filter(sample_table, subtissue == s_tissue) %>% pull(sample) %>% 
-        {select(psi_tab, seqid, strand, start, end, .)} %>% mutate( start=start+1) %>% 
-        inner_join(novel_exons_in_tissue_splicing,.)
-    meta_cols <- colnames(novel_exons_in_tissue_splicing)
-    psi_only <- psi_tissue %>% select(-meta_cols)
-    not_det <- psi_only %>% apply(2, is.na) %>% {rowSums(.) == ncol(.) }
-    psi_tissue_det <- psi_tissue %>% filter(!not_det) %>% mutate(avg_psi= select(., -meta_cols) %>% rowMeans())
-    psi_tissue_det %>% filter(avg_psi < MIN_PSI ) %>% pull(nv_type_rc) %>% table 
-}
-subtissues <- filter(sample_table, !subtissue %in%c('Cornea_Fetal.Tissue', 'synth')) %>% pull(subtissue) %>% unique
-not_det_splicing_types <- lapply(subtissues, summarise_splicing_not_found)
-undetected_exons_by_event <-  not_det_splicing_types %>% do.call(rbind, .) %>% as_tibble() %>% 
-    gather(event_type, misclassed_events) %>% group_by(event_type) %>% summarise(total_missed=sum(missclassed_events))
-
-
+# MIN_PSI <- .1
+# summarise_splicing <- function(s_tissue){
+#     ctab <- tcons2mstrg %>% select(transcript_id, !!s_tissue) %>% filter(!is.na(.[,s_tissue]))
+#     exons_in_tissue <- full_gtf %>% filter(transcript_id %in% ctab$transcript_id) %>% 
+#         select(seqid, strand, start, end) %>% distinct
+#     novel_exons_in_tissue_splicing <- novel_exons_TSES %>% inner_join(exons_in_tissue) %>% 
+#         filter(!nv_type_rc %in% c( 'novel_TES', 'novel_TSS'))
+#     psi_tissue <- filter(sample_table, subtissue == s_tissue) %>% pull(sample) %>% 
+#         {select(psi_tab, seqid, strand, start, end, .)} %>% mutate( start=start+1) %>% 
+#         inner_join(novel_exons_in_tissue_splicing,.)
+#     meta_cols <- colnames(novel_exons_in_tissue_splicing)
+#     psi_only <- psi_tissue %>% select(-meta_cols)
+#     not_det <- psi_only %>% apply(2, is.na) %>% {rowSums(.) == ncol(.) }
+#     psi_tissue_det <- psi_tissue %>% filter(!not_det) %>% mutate(avg_psi= select(., -meta_cols) %>% rowMeans())
+#     tibble(num_const_exons=nrow(novel_exons_in_tissue_splicing), num_det_rmats=nrow(psi_tissue_det),
+#            num_exp_psi=psi_tissue_det %>% filter(avg_psi >= MIN_PSI ) %>% nrow)
+# }
+# subtissues <- filter(sample_table, !subtissue %in%c('Cornea_Fetal.Tissue', 'synth')) %>% pull(subtissue) %>% unique
+# splicing_sum <- lapply(subtissues, summarise_splicing) %>% bind_rows %>% mutate(subtissue=subtissues) %>% 
+#     select(subtissue,everything())
+# 
+# 
+# 
+# summarise_splicing_not_found <- function(s_tissue){
+#     ctab <- tcons2mstrg %>% select(transcript_id, !!s_tissue) %>% filter(!is.na(.[,s_tissue]))
+#     exons_in_tissue <- full_gtf %>% filter(transcript_id %in% ctab$transcript_id) %>% 
+#         select(seqid, strand, start, end) %>% distinct
+#     novel_exons_in_tissue_splicing <- novel_exons_TSES %>% inner_join(exons_in_tissue) %>% 
+#         filter(!nv_type_rc %in% c( 'novel_TES', 'novel_TSS'))
+#     psi_tissue <- filter(sample_table, subtissue == s_tissue) %>% pull(sample) %>% 
+#         {select(psi_tab, seqid, strand, start, end, .)} %>% mutate( start=start+1) %>% 
+#         inner_join(novel_exons_in_tissue_splicing,.)
+#     meta_cols <- colnames(novel_exons_in_tissue_splicing)
+#     psi_only <- psi_tissue %>% select(-meta_cols)
+#     not_det <- psi_only %>% apply(2, is.na) %>% {rowSums(.) == ncol(.) }
+#     psi_tissue_det <- psi_tissue %>% filter(!not_det) %>% mutate(avg_psi= select(., -meta_cols) %>% rowMeans())
+#     psi_tissue_det %>% filter(avg_psi < MIN_PSI ) %>% pull(nv_type_rc) %>% table 
+# }
+# subtissues <- filter(sample_table, !subtissue %in%c('Cornea_Fetal.Tissue', 'synth')) %>% pull(subtissue) %>% unique
+# not_det_splicing_types <- lapply(subtissues, summarise_splicing_not_found)
+# undetected_exons_by_event <-  not_det_splicing_types %>% do.call(rbind, .) %>% as_tibble() %>% 
+#     gather(event_type, misclassed_events) %>% group_by(event_type) %>% summarise(total_missed=sum(missclassed_events))
+# 
+# 
 
