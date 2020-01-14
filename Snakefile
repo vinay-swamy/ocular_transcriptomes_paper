@@ -93,12 +93,20 @@ rule summarizeBuildResults:
 
 
 rule splicing_hm:
-    input:psi_file=data_dir+'data/rmats/all_tissues_psi.tsv', tc2mstrg=tcons2mstrg, classfile=exon_classification_file, color_df=working_dir+ 'clean_data/rdata/tissue_to_colors.Rdata'
-    output:working_dir+ 'clean_data/rdata/splicing_analysis_results.Rdata'
+    input:psi_file=data_dir+'data/rmats/all_tissues_psi.tsv', tc2mstrg=tcons2mstrg, classfile=exon_classification_file, color_df=working_dir + 'clean_data/rdata/tissue_to_colors.Rdata', gtf_ano_file = data_dir + 'data/gtfs/all_tissues.combined_NovelAno.gtf'
+    output:working_dir+ 'clean_data/plots/novel_exon_splicing_heatmap.tiff'
     shell:
         '''
         module load {R_version}
-        Rscript scripts/splicing_heatmap.R {working_dir} {input.psi_file} {sample_file} {input.tc2mstrg} {input.classfile} {gtf_file} {input.color_df} {output}
+        Rscript scripts/splicing_heatmap.R \
+            {working_dir} \
+            {input.psi_file} \
+            {sample_file} \
+            {input.tc2mstrg} \
+            {input.classfile} \
+            {input.gtf_ano_file} \
+            {input.color_df} \
+            {output}
         '''
 
 
@@ -141,8 +149,8 @@ rule knit_notebooks:
     input: \
     working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', \
     working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', \
-    working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
-    #working_dir + 'clean_data/rdata/splicing_analysis_results.Rdata', \
+    working_dir + 'clean_data/rdata/novel_isoforms.Rdata', \
+    working_dir + 'clean_data/plots/novel_exon_splicing_heatmap.tiff' 
     #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
     #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
     output: 'notebooks/results_v2.html'
