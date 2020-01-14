@@ -1,17 +1,17 @@
 library(tidyverse)
 library(matrixStats)
 source('~/scripts/read_salmon.R')
-args <- c('/Volumes/data/occular_transcriptomes_paper/',
-          '/Volumes/data/eyeintegration_splicing/',
+args <- c('/Volumes/data/ocular_transcriptomes_paper/',
+          '/Volumes/data/ocular_transcriptomes_pipeline/',
           'sampleTableFull.tsv',
           'data/gtfs/all_tissues.combined_NovelAno.gtf',
           'data/salmon_quant/RPE_Fetal.Tissue/',
           'data/misc/TCONS2MSTRG.tsv',
           'RPE_Fetal.Tissue',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/transcriptome_pipeline_stats.Rdata'
+          '/Volumes/data/ocular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab',
+          '/Volumes/data/ocular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab',
+          '/Volumes/data/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab',
+          '/Volumes/data/ocular_transcriptomes_paper/clean_data/transcriptome_pipeline_stats.Rdata'
           )
 args <- commandArgs(trailingOnly = T)
 save(args, file='tmp/tps.args')
@@ -90,7 +90,7 @@ nsamp_by_tissue <- sample_table %>% group_by(subtissue) %>% summarise(nsamp=n())
 
 DNTX_mapping_rates <- process_lib_size_tabs(DNTX_mapping_rate_file , 'DNTX')
 gencode_mapping_rates <- process_lib_size_tabs(gencode_mapping_rate_file, 'gencode')
-sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
+median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
     inner_join(select(sample_table, sample, subtissue)) %>% 
     mutate(map_diff=DNTX_percent_mapped - gencode_percent_mapped) %>% 
     group_by(subtissue) %>% 
@@ -98,6 +98,13 @@ sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>
     mutate(med_num_reads_gained = med_diff * med_libsize) %>% 
     left_join(tx_counts) %>% left_join(nsamp_by_tissue)
 
+all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
+    inner_join(select(sample_table, sample, body_location)) %>% 
+    select(sample, body_location, contains('percent')) %>% 
+    gather(key='build',value = 'mapping_rate', -body_location, -sample) %>% 
+    mutate(build=ifelse(build == 'DNTX_percent_mapped', 'DNTX', 'gencode'))
+
+save(all_sample_mapping_rates, file = '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/all_tx_mappingrates.Rdata')
 
 #----
 
@@ -113,7 +120,7 @@ sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>
 
 
 #----
-save(median_bootstrap_variance, sample_mapping_rates, tx_counts,  file = clean_data)
+save(median_bootstrap_variance, median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = clean_data)
 
 
 
