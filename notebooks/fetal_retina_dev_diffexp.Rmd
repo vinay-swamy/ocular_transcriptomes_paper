@@ -102,7 +102,7 @@ for( i in c("early-late","early-mid", 'late-mid')){
     conds <- str_split(i, '-')[[1]]
     top <- conds[1]
     bottom <- conds[2]
-    df <-  topTable(model_results, adjust.method = 'fdr', coef = i, number = 30000000, p.value = .05) %>% 
+    df <-  topTable(model_results, adjust.method = 'fdr', coef = i, number = 30000000, p.value = .01) %>% 
        as.data.frame %>% mutate(gene_name=rownames(.)) %>% 
        filter(grepl('TCONS', gene_name), gene_name %in% retina_fetal_exp)
     upregulated[[top]] <- c(upregulated[[top]],
