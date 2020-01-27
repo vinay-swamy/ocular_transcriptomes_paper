@@ -1,31 +1,45 @@
 library(tidyverse)
 library(matrixStats)
+library(argparse)
 source('~/scripts/read_salmon.R')
-args <- c('/Volumes/data/ocular_transcriptomes_paper/',
-          '/Volumes/data/ocular_transcriptomes_pipeline/',
-          'sampleTableFull.tsv',
-          'data/gtfs/all_tissues.combined_NovelAno.gtf',
-          'data/salmon_quant/RPE_Fetal.Tissue/',
-          'data/misc/TCONS2MSTRG.tsv',
-          'RPE_Fetal.Tissue',
-          '/Volumes/data/ocular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab',
-          '/Volumes/data/ocular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab',
-          '/Volumes/data/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab',
-          '/Volumes/data/ocular_transcriptomes_paper/clean_data/transcriptome_pipeline_stats.Rdata'
-          )
-args <- commandArgs(trailingOnly = T)
-save(args, file='tmp/tps.args')
-working_dir <- args[1]
-data_dir <- args[2]
-sample_table_file <- args[3]
-ano_gtf_file <-  args[4]
-path_to_bs <- args[5]
-tcons2mstrg_file <- args[6]
-tissue <- args[7]
-gencode_mapping_rate_file <- args[8]
-DNTX_mapping_rate_file <- args[9]
-gtf_trasncript_count_file <- args[10]
-clean_data <- args[11]
+# args <- c('/Volumes/data/ocular_transcriptomes_paper/',
+#           '/Volumes/data/ocular_transcriptomes_pipeline/',
+#           'sampleTableFull.tsv',
+#           'data/gtfs/all_tissues.combined_NovelAno.gtf',
+#           'data/salmon_quant/RPE_Fetal.Tissue/',
+#           'data/misc/TCONS2MSTRG.tsv',
+#           'RPE_Fetal.Tissue',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab',
+#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/transcriptome_pipeline_stats.Rdata'
+#           )
+
+parser <- ArgumentParser()
+parser$add_argument('--workingDir', action='store', dest='working_dir')
+parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
+parser$add_argument('--sampleTableFile', action = 'store', dest = 'sample_table_file')
+parser$add_argument('--anoGtfFile', action = 'store', dest='ano_gtf_file')
+parser$add_argument('--pathToBs', action = 'store', dest = 'path_to_bs')
+parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons2mstrg_file')
+parser$add_argument('--tissue', action='store', dest = 'tissue')
+parser$add_argument('--gencodeMapRateFile', action = 'store', dest = 'gencode_mapping_rate_file')
+parser$add_argument('--DNTXMapRateFile',action = 'store', dest = 'DNTX_mapping_rate_file')
+parser$add_argument('--gtfTxCountFile', action = 'store', dest = 'gtf_trasncript_count_file')
+parser$add_argument('--cleanData', action = 'store', dest = 'clean_data')
+list2env(parser$parse_args(), .GlobalEnv)
+
+# working_dir <- args[1]
+# data_dir <- args[2]
+# sample_table_file <- args[3]
+# ano_gtf_file <-  args[4]
+# path_to_bs <- args[5]
+# tcons2mstrg_file <- args[6]
+# tissue <- args[7]
+# gencode_mapping_rate_file <- args[8]
+# DNTX_mapping_rate_file <- args[9]
+# gtf_trasncript_count_file <- args[10]
+# clean_data <- args[11]
 
 setwd(data_dir)
 proc_boostrap <- function(file){
@@ -104,7 +118,7 @@ all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rate
     gather(key='build',value = 'mapping_rate', -body_location, -sample) %>% 
     mutate(build=ifelse(build == 'DNTX_percent_mapped', 'DNTX', 'gencode'))
 
-save(all_sample_mapping_rates, file = '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/all_tx_mappingrates.Rdata')
+#save(all_sample_mapping_rates, file = '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/all_tx_mappingrates.Rdata')
 
 #----
 

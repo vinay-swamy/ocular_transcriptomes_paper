@@ -1,25 +1,32 @@
 library(tidyverse)
 library(RBedtools)
 library(RColorBrewer)
-args <- c('/Volumes/data/occular_transcriptomes_paper/',
-          '/Volumes/data/eyeintegration_splicing/',
-          'rdata/novel_exon_classification.rdata',
-          'data/gtfs/all_tissues.combined_NovelAno.gtf', 
-          'sampleTableFull.tsv',
-          'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3',
-          'data/misc/TCONS2MSTRG.tsv', 
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/tissue_to_colors.Rdata',
-          '/Volumes/data/occular_transcriptomes_paper/clean_data/buildResultsSummary.Rdata')
+library(argparse)
+
 args <- commandArgs(trailingOnly = T) 
-working_dir <- args[1]
-data_dir <- args[2]
-exon_classifcation_file <- args[3]
-gtf_file <- args[4]
-sample_table_file <- args[5]
-gff3_file <- args[6]
-tcons2mstrg_file <- args[7]
-color_mapping_df <- args[8]
-data_to_plot <- args[9]
+
+parser <- ArgumentParser()
+parser$add_argument('--workingDir', action='store', dest='working_dir')
+parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
+parser$add_argument('--exonClassFile', action = 'store', dest ='exon_classifcation_file')
+parser$add_Argument('--gtfFile', action = 'store', dest = 'gtf_file')
+parser$add_argument('--sampleTableFile', action= 'store', dest = 'sample_table_file')
+parser$add_argument('--gff3File', action = 'store', dest = 'gff3_file')
+parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons2mstrg_file')
+parser$add_argument('--colorMappingDf', action = 'store', dest = 'color_mapping_df')
+parser$add_argument('--dataToPlot', action = 'store', dest = 'data_to_plot')
+list2env(parser$parse_args(), .GlobalEnv)
+
+
+# working_dir <- args[1]
+# data_dir <- args[2]
+# exon_classifcation_file <- args[3]
+# gtf_file <- args[4]
+# sample_table_file <- args[5]
+# gff3_file <- args[6]
+# tcons2mstrg_file <- args[7]
+# color_mapping_df <- args[8]
+# data_to_plot <- args[9]
 setwd(data_dir)
 
 load(exon_classifcation_file) 

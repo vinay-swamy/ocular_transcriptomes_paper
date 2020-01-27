@@ -3,6 +3,7 @@ library(ComplexHeatmap)
 library(RColorBrewer)
 library(viridis)
 library(matrixStats)
+library(argparse)
 # args <- c('/Volumes/data/ocular_transcriptomes_paper/', '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissues_psi.tsv',
 #           '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv',
 #           '~/NIH/ocular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv',
@@ -11,15 +12,25 @@ library(matrixStats)
 #           '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata',
 #           '/Volumes/data/ocular_transcriptomes_paper/testing/sphm.Rdata')
 
-args <- commandArgs(trailingOnly = T)
-wd <- args[1]
-psi_file <- args[2]
-sample_file <- args[3]
-tc2mstrg_file <- args[4]
-exon_classification_file <- args[5]
-gtf_file <- args[6]
-color_df <- args[7]
-outfile <- args[8]
+
+parser <- ArgumentParser()
+parser$add_argument('--workingDir', action='store', dest='wd')
+parser$add_argument('--psiFile', action = 'store', dest = 'psi_file')
+parser$add_argument('--sampleFile', action = 'store', dest = 'sample_file')
+parser$add_argument('--tc2mstrgFile', action = 'store', dest = 'tc2mstrg_file')
+parser$add_argument('--exonClassFile', action = 'store', dest = 'exon_classification_file')
+parser$add_argument('--gtfFile', action = 'store', dest = 'gtf_file')
+parser$add_argument('--colorDf', action = 'store', dest = 'color_df')
+parser$add_argument('--outFile', action ='store', dest = 'outfile')
+
+# wd <- args[1]
+# psi_file <- args[2]
+# sample_file <- args[3]
+# tc2mstrg_file <- args[4]
+# exon_classification_file <- args[5]
+# gtf_file <- args[6]
+# color_df <- args[7]
+# outfile <- args[8]
 #save(args, file='tmp/sphm_args.rdata')
 setwd(wd)
 

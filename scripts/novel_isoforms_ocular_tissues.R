@@ -3,29 +3,29 @@ library(enrichR)
 library(UpSetR)
 library(matrixStats)
 library(ggpubr)
-# args <- c('/Volumes/data/ocular_transcriptomes_paper/',
-#           '/Volumes/data/ocular_transcriptomes_pipeline/',
-#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissues.combined_NovelAno.gtf',
-#           '/Volumes/data/ocular_transcriptomes_pipeline/data/rdata/novel_exon_classification.Rdata',
-#           '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv',
-#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/TCONS2MSTRG.tsv', 
-#           '~/NIH/ocular_transcriptomes_paper/new_data_122619/all_tissue_quant.Rdata',
-#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/novel_isoforms.Rdata')
+library(argparse)
+
+parser <- ArgumentParser()
+parser$add_argument('--workingDir', action='store', dest='working_dir')
+parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
+parser$add_argument('--NovelExonClassFile', action = 'store', dest = 'novel_exon_class')
+parser$add_argument('--gtfFile', action = 'store', dest = 'gtf_file')
+parser$add_argument('--sampleTableFile', action = 'store', dest= 'sample_table_file')
+parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons_2_mstrg_file')
+parser$add_argument('--quantFile', action = 'store', dest = 'quant_file')
+parser$add_argument('--cleanData', action = 'store', dest = 'clean_outdata')
+list2env(parser$parse_args(), .GlobalEnv)
 
 
 
-args <- commandArgs(trailingOnly = T)
-
-
-save(args, file = 'testing/niot_args.rdata')
-working_dir <- args[1] 
-data_dir <- args[2]
-gtf_file <- args[3]
-novel_exon_class <- args[4]
-sample_table_file <- args[5]
-tcons_2_mstrg_file <- args[6]
-quant_file <- args[7]
-clean_outdata <- args[8]
+# working_dir <- args[1] 
+# data_dir <- args[2]
+# gtf_file <- args[3]
+# novel_exon_class <- args[4]
+# sample_table_file <- args[5]
+# tcons_2_mstrg_file <- args[6]
+# quant_file <- args[7]
+# clean_outdata <- args[8]
 
 
 setwd(working_dir)
