@@ -71,8 +71,34 @@ novel_sequence <- RBedtools('subtract', options = '-s', output = 'stdout', a=dnt
     to_data_frame
 NUM_TOTAL_NOVEL_SEQ <- novel_sequence %>% mutate(length=X3-X2) %>% pull(length) %>% sum 
 
+process_lib_size_tabs <- function(file, type){
+    df_messy <- read.delim(file, sep = ' ', header = F) 
+    sample <- df_messy$V1 %>% as.character %>%  str_split('/') %>% 
+        sapply( function (x){idx=(which(grepl('aux_info', x)) -1);return(x[idx])} )
+    total_reads <-  df_messy$V3 %>% str_split(',') %>% sapply(function(x)x[1]) %>% as.numeric 
+    percent_mapped <- df_messy$V5 %>% str_split(',') %>% sapply(function(x)x[1]) %>% as.numeric %>% {./100}
+    df <- tibble(sample, total_reads, percent_mapped)
+    colnames(df) <- c('sample', paste0(type, c('_total_reads', '_percent_mapped')))
+    return(df)
+}
+
 DNTX_mapping_rates <- process_lib_size_tabs(DNTX_mapping_rate_file , 'DNTX')
 gencode_mapping_rates <- process_lib_size_tabs(gencode_mapping_rate_file, 'gencode')
+
+inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>%
+    mutate(diff = (DNTX_total_reads*DNTX_percent_mapped) - (gencode_total_reads*gencode_percent_mapped) ) %>% 
+    View 
+    {sum(. < 0)}
+    pull(diff) %>% sum
+    
+    median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
+        inner_join(select(sample_table, sample, subtissue)) %>% 
+        mutate(map_diff=DNTX_percent_mapped - gencode_percent_mapped) %>% 
+        group_by(subtissue) %>% 
+        summarise(med_diff=median(map_diff), med_libsize=median(gencode_total_reads) ) %>% arrange(desc(med_diff)) %>% 
+        mutate(med_num_reads_gained = med_diff * med_libsize) #%>% 
+        left_join(tx_counts) %>% left_join(nsamp_by_tissue)
+
 
 
 

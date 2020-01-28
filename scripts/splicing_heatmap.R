@@ -22,7 +22,7 @@ parser$add_argument('--exonClassFile', action = 'store', dest = 'exon_classifica
 parser$add_argument('--gtfFile', action = 'store', dest = 'gtf_file')
 parser$add_argument('--colorDf', action = 'store', dest = 'color_df')
 parser$add_argument('--outFile', action ='store', dest = 'outfile')
-
+list2env(parser$parse_args(), .GlobalEnv)
 # wd <- args[1]
 # psi_file <- args[2]
 # sample_file <- args[3]
