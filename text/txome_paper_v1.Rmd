@@ -31,12 +31,12 @@ library(grid)
 library(png)
 sample_table <- read_tsv('sampleTableFull.tsv') %>% filter(subtissue != 'synth')
 load('clean_data/rdata/tissue_to_colors.Rdata')
-load('/Volumes/data/ocular_transcriptomes_pipeline/ref/core_tight.Rdata')
+load('clean_data/rdata/core_tight.Rdata')
 tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
 load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
 core_tight <- core_tight %>% select(sample=sample_accession, study=study_accession) %>% distinct
-load('/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers.Rdata')
+load('clean_data/rdata/paper_numbers.Rdata')
 ```
 
 
@@ -260,7 +260,7 @@ Figure 1 (A, B) Number of novel gene isoforms and novel loci constructed across 
 
 ```{r, fig.width=10, fig.height=10}
 load('clean_data/rdata/novel_isoforms.Rdata')
-source('~/scripts/R_raincloud.R')
+source('scripts/R_raincloud.R')
 plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line') ]
 names(plot_list) <- gsub('_|\\.', ' ', names(plot_list))
 png('/tmp/upset.png', res=100, height = 1000, width = 2000)
@@ -355,7 +355,7 @@ Figure 3. Screenshots from dynamic *de novo* transcriptome visualization tool. A
 
 ## Supplemental Figures
 
-![](/Volumes/data/ocular_transcriptomes_pipeline/dag.png)
+![](plots/dag.png)
 
 ::: {custom-style="CustomCaption"}
 Supplemental Figure 1. Directed Acyclic Graph of *de novo* transcriptome construction pipeline. 
