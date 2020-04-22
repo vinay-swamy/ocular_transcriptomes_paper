@@ -5,7 +5,7 @@ gencode_mappingrates=$3
 gtfs_counts=$4
 rm -f $2 $3 $4
 mkdir -p tmp
-for sample in ${quant_path}/data/salmon_quant/*/*/aux_info/meta_info.json
+for sample in ${quant_path}/data/salmon_quant/dntx/*/*/aux_info/meta_info.json
     do
         echo $sample `grep num_processed $sample ` `grep percent_mapped $sample` >> ${DNTX_mapping_rates}
     done

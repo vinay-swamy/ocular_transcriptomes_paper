@@ -42,7 +42,7 @@ gtf_file=data_dir + 'data/gtfs/all_tissues.combined.gtf'
 exon_classification_file=data_dir + 'data/rdata/novel_exon_classification.Rdata'
 gff3_file=data_dir + 'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3'
 ref_gtf= data_dir + 'ref/gencode_comp_ano.gtf'
-tcons2mstrg=data_dir + 'data/misc/TCONS2MSTRG.tsv'
+tcons2mstrg=data_dir + 'data/gtfs/all_tissues.convtab'
 
 eye_tissues=['Retina_Adult.Tissue', 'Retina_Fetal.Tissue', 'RPE_Adult.Tissue', 'RPE_Fetal.Tissue', 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue']
 
@@ -50,22 +50,28 @@ rule all:
     input: 'notebooks/results_v2.html'
 
 rule transcriptome_pipeline_stats:
-    input:  t2m=tcons2mstrg,
-    params: path_to_bs=data_dir+'data/salmon_quant/RPE_Fetal.Tissue/', tissue='RPE_Fetal.Tissue'
-    output: DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',\
-            gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',\
-            tx_counts= working_dir+'clean_data/all_gtfs_tx_counts.tab',\
-            clean_data= working_dir+'clean_data/rdata/transcriptome_pipeline_stats.Rdata'
+    input:  
+        t2m=tcons2mstrg,
+    params: 
+        tissue='RPE_Fetal.Tissue'
+    output: 
+        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',\
+        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',\
+        tx_counts= working_dir+'clean_data/all_gtfs_tx_counts.tab',\
+        clean_data= working_dir+'clean_data/rdata/transcriptome_pipeline_stats.Rdata'
     shell:
         '''
-        bash scripts/count_stats_from_files.sh {data_dir} {output.DNTX_mr} {output.gencode_mr} {output.tx_counts}
+        bash scripts/count_stats_from_files.sh \
+            {data_dir} \
+            {output.DNTX_mr} \
+            {output.gencode_mr} \
+            {output.tx_counts}
         module load {R_version}
         Rscript scripts/transcriptome_pipeline_stats.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
             --sampleTableFile {sample_file}\
             --anoGtfFile {gtf_file}\
-            --pathToBs {params.path_to_bs}\
             --tcons2mstrgFile {input.t2m}\
             --tissue {params.tissue}\
             --gencodeMapRateFile {output.gencode_mr}\
@@ -75,12 +81,17 @@ rule transcriptome_pipeline_stats:
         '''
 
 rule summarizeBuildResults:
-    input:exon_class=exon_classification_file , tc2mstrg=tcons2mstrg ,gff3=gff3_file  
-    output:color_df=working_dir+ 'clean_data/rdata/tissue_to_colors.Rdata', plotting_data= working_dir+ 'clean_data/rdata/buildResultsSummary.Rdata'
+    input:
+        exon_class=exon_classification_file , 
+        tc2mstrg=tcons2mstrg ,gff3=gff3_file  
+    output:
+        color_df=working_dir+ 'clean_data/rdata/tissue_to_colors.Rdata', 
+        plotting_data= working_dir+ 'clean_data/rdata/buildResultsSummary.Rdata'
     shell:
         '''
         module load {bedtools_version}
         module load {R_version}
+        which R 
         Rscript scripts/summarize_build_results.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
@@ -95,42 +106,37 @@ rule summarizeBuildResults:
 
 
 rule paper_numbers_and_sup_figs:
-    input:eye_gtfs=expand( data_dir+'data/gtfs/final_gtfs/{tissue}.gtf', tissue=eye_tissues), pan_body_gtf=gtf_file 
-    params: final_gtf_dir = data_dir + 'data/gtfs/final_gtfs/', raw_gtf_dir = data_dir + 'data/gtfs/raw_tissue_gtfs/', ref_tx_exon_rdata = data_dir + 'rdata/all_ref_tx_exons.rdata', core_tight_file = data_dir + 'ref/core_tight.Rdata',
-    output: pan_eye_gtf = 'clean_data/pan_eye_txome.combined.gtf', clean_data = working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata'
+    input:
+        eye_gtfs=expand( data_dir+'data/gtfs/final_tissue_gtfs/{tissue}.gtf', tissue=eye_tissues), 
+        pan_body_gtf=gtf_file, 
+        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',
+        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',
+    params: 
+        final_gtf_dir = data_dir + 'data/gtfs/final_gtfs/', 
+        raw_gtf_dir = data_dir + 'data/gtfs/raw_tissue_gtfs/', 
+        ref_tx_exon_rdata = data_dir + 'rdata/all_ref_tx_exons.rdata', 
+        core_tight_file = data_dir + 'ref/core_tight.Rdata'
+    output: 
+        pan_eye_gtf = 'clean_data/pan_eye_txome.combined.gtf', 
+        clean_data = working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata'
     shell:
         '''
         module load gffcompare 
         module load {R_version}
         gffcompare -r {ref_gtf} --strict-match -o clean_data/pan_eye_txome {input.eye_gtfs} 
         Rscript scripts/paper_numbers_sup_figs.R \
-            {working_dir} \
-            {data_dir} \
-            {sample_file} \
-            {input.pan_body_gtf} \
-            {output.pan_eye_gtf} \
-            {params.raw_gtf_dir} \
-            {params.ref_tx_exon_rdata} \
-            {params.core_tight_file} \
-            {output.clean_data}
-
-        '''
-
-rule splicing_hm:
-    input:psi_file=data_dir+'data/rmats/all_tissues_psi.tsv', tc2mstrg=tcons2mstrg, classfile=exon_classification_file, color_df=working_dir + 'clean_data/rdata/tissue_to_colors.Rdata', gtf_ano_file = data_dir + 'data/gtfs/all_tissues.combined_NovelAno.gtf'
-    output:working_dir+ 'clean_data/plots/novel_exon_splicing_heatmap.tiff'
-    shell:
-        '''
-        module load {R_version}
-        Rscript scripts/splicing_heatmap.R \
             --workingDir {working_dir} \
-            --psiFile {input.psi_file} \
-            --sampleFile {sample_file} \
-            --tc2mstrgFile {input.tc2mstrg} \
-            --exonClassFile {input.classfile} \
-            --gtfFile {input.gtf_ano_file} \
-            --colorDf {input.color_df} \
-            --outFile {output}
+            --dataDir {data_dir} \
+            --sampleTableFile {sample_file} \
+            --allTissueGtf {input.pan_body_gtf} \
+            --EyeOnlyGtf {output.pan_eye_gtf} \
+            --pathToRawGtfs {params.raw_gtf_dir} \
+            --allRefAno {params.ref_tx_exon_rdata} \
+            --coreTight {params.core_tight_file} \
+            --outNumFile {output.clean_data} \
+            --dntxMapRate {input.DNTX_mr} \
+            --gencodeMapRate {input.gencode_mr}
+
         '''
 
 
@@ -147,7 +153,7 @@ rule novel_isoforms_ocular_tissues:
             --gtfFile {input.gtf_ano_file} \
             --sampleTableFile {sample_file} \
             --tcons2mstrgFile {tcons2mstrg} \
-            --quanFile {input.quant} \
+            --quantFile {input.quant} \
             --cleanData {output.outdata}
             
         '''
@@ -174,7 +180,6 @@ rule knit_notebooks:
     working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', \
     working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', \
     working_dir + 'clean_data/rdata/novel_isoforms.Rdata', \
-    working_dir + 'clean_data/plots/novel_exon_splicing_heatmap.tiff', \
     working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata' 
     #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
     #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\

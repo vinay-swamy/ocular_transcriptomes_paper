@@ -1,15 +1,15 @@
+
 library(tidyverse)
 library(RBedtools)
 library(RColorBrewer)
 library(argparse)
 
-args <- commandArgs(trailingOnly = T) 
 
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action='store', dest='working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--exonClassFile', action = 'store', dest ='exon_classifcation_file')
-parser$add_Argument('--gtfFile', action = 'store', dest = 'gtf_file')
+parser$add_argument('--gtfFile', action = 'store', dest = 'gtf_file')
 parser$add_argument('--sampleTableFile', action= 'store', dest = 'sample_table_file')
 parser$add_argument('--gff3File', action = 'store', dest = 'gff3_file')
 parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons2mstrg_file')
@@ -17,7 +17,7 @@ parser$add_argument('--colorMappingDf', action = 'store', dest = 'color_mapping_
 parser$add_argument('--dataToPlot', action = 'store', dest = 'data_to_plot')
 list2env(parser$parse_args(), .GlobalEnv)
 
-
+save.image('testing/smbr.Rdata')
 # working_dir <- args[1]
 # data_dir <- args[2]
 # exon_classifcation_file <- args[3]

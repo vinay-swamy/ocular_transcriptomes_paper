@@ -28,7 +28,7 @@ parser$add_argument('--DNTXMapRateFile',action = 'store', dest = 'DNTX_mapping_r
 parser$add_argument('--gtfTxCountFile', action = 'store', dest = 'gtf_trasncript_count_file')
 parser$add_argument('--cleanData', action = 'store', dest = 'clean_data')
 list2env(parser$parse_args(), .GlobalEnv)
-
+save.image('testing/tps_args.Rdata')
 # working_dir <- args[1]
 # data_dir <- args[2]
 # sample_table_file <- args[3]
@@ -42,19 +42,6 @@ list2env(parser$parse_args(), .GlobalEnv)
 # clean_data <- args[11]
 
 setwd(data_dir)
-proc_boostrap <- function(file){
-    BS_raw <- read_tsv(file, col_names = F)
-    name <- str_split(file,'/') %>%.[[1]] %>% {.[(which(grepl('quant_bootstrap',.)) -1)]} 
-    res <- tibble(transcript_id=BS_raw$X1, !!name := BS_raw[,-1] %>% as.matrix %>% {matrixStats::rowVars(.)} )
-    return(res)
-}
-var_sum <- function(all_bs, t_tissue){
-    novel_bs <- filter(all_bs, grepl(t_tissue, transcript_id))
-    ref_bs <- filter(all_bs, !grepl(t_tissue, transcript_id) )
-    novel_medvar <- novel_bs[,-1] %>% as.matrix() %>% rowMedians()
-    ref_medvar <- ref_bs[,-1] %>% as.matrix() %>% rowMedians()
-    return(list(novel_median_variance=novel_medvar, ref_median_variance=ref_medvar))
-}
 process_lib_size_tabs <- function(file, type){
     df_messy <- read.delim(file, sep = ' ', header = F) 
     sample <- df_messy$V1 %>% as.character %>%  str_split('/') %>% 
@@ -69,9 +56,7 @@ sample_table <- read_tsv(sample_table_file) %>% filter(subtissue != 'synth')
 t2m <- read_tsv(tcons2mstrg_file)
 #PROCESS BOOTSTRAPS
 #----
-bs_files <- list.files(path = path_to_bs, pattern = 'quant_bootstraps.tsv.gz', recursive = T, full.names = T)
-all_bs <- lapply(bs_files, proc_boostrap) %>% reduce(left_join)
-median_bootstrap_variance <- var_sum(all_bs, t_tissue = tissue)
+
 
 #---- 
 
@@ -83,16 +68,14 @@ median_bootstrap_variance <- var_sum(all_bs, t_tissue = tissue)
 
 
 tx_counts <- read_delim(gtf_trasncript_count_file, ' ' , col_names=c('raw', 'tx_count')) %>% 
-    mutate(build= case_when( grepl('final_gtf',raw) ~ 'final',
-                             grepl('compfilt',raw) ~ 'compfilt',
-                             grepl('combined',raw) ~ 'raw',
-                             grepl('gfcfilt',raw) ~ 'gfc_filt'),
+    filter(!grepl('filtered', raw)) %>% 
+    mutate(build=ifelse(grepl('final',raw), 'filtered','base'),
            subtissue= raw %>% 
-                        str_remove("final_gtf|\\.compfilt|\\.combined|\\.gfcfilt") %>% 
+                        str_remove("\\.combined") %>% 
                         str_split('/') %>% 
                         sapply(function(x) x[grep('\\.gtf', x) ] %>% str_remove('\\.gtf|_st\\.gtf')),
-           raw=NULL) %>% 
-        spread(build, tx_count) %>%
+           raw=NULL)%>% 
+        spread(build, tx_count)# %>%
     select(subtissue, raw, gfc_filt, compfilt, final)
 #----
 
@@ -134,7 +117,7 @@ all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rate
 
 
 #----
-save(median_bootstrap_variance, median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = clean_data)
+save(median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = clean_data)
 
 
 

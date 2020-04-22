@@ -13,17 +13,17 @@ SUP FIGS
 library(tidyverse)
 library(RBedtools)
 library(argparse)
-args <- list(
-    working_dir= '/Volumes/data/ocular_transcriptomes_paper/', 
-    data_dir= '/Volumes/data/ocular_transcriptomes_pipeline/',
-    sample_table_file= '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv', 
-    pan_body_gtf_file= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/all_tissues.combined.gtf',
-    pan_eye_gtf_file= '/Volumes/data/ocular_transcriptomes_paper/clean_data/pan_eye_txome.combined.gtf',
-    path_to_raw_tissues_gtfs= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/raw_tissue_gtfs/',
-    all_ref_ano= '/Volumes/data/ocular_transcriptomes_pipeline/rdata/all_ref_tx_exons.rdata',
-    core_tight_file= '/Volumes/data/ocular_transcriptomes_pipeline/ref/core_tight.Rdata',
-    out_num_file=  '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers.Rdata')
-list2env(args, .GlobalEnv)
+# args <- list(
+#     working_dir= '/Volumes/data/ocular_transcriptomes_paper/', 
+#     data_dir= '/Volumes/data/ocular_transcriptomes_pipeline/',
+#     sample_table_file= '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv', 
+#     pan_body_gtf_file= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/all_tissues.combined.gtf',
+#     pan_eye_gtf_file= '/Volumes/data/ocular_transcriptomes_paper/clean_data/pan_eye_txome.combined.gtf',
+#     path_to_raw_tissues_gtfs= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/raw_tissue_gtfs/',
+#     all_ref_ano= '/Volumes/data/ocular_transcriptomes_pipeline/rdata/all_ref_tx_exons.rdata',
+#     core_tight_file= '/Volumes/data/ocular_transcriptomes_pipeline/ref/core_tight.Rdata',
+#     out_num_file=  '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers.Rdata')
+# list2env(args, .GlobalEnv)
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action = 'store', dest = 'working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
@@ -34,9 +34,10 @@ parser$add_argument('--pathToRawGtfs', action = 'store', dest = 'path_to_raw_tis
 parser$add_argument('--allRefAno', action = 'store', dest = 'all_ref_ano')
 parser$add_argument('--coreTight', action = 'store', dest = 'core_tight_file')
 parser$add_argument('--outNumFile', action = 'store', dest = 'out_num_file')
-
+parser$add_argument('--dntxMapRate', action = 'store', dest = 'DNTX_mapping_rate_file')
+parser$add_argument('--gencodeMapRate', action = 'store', dest = 'gencode_mapping_rate_file')
 list2env(parser$parse_args(), .GlobalEnv)
-
+save.image('testing/pnsp_Args.Rdata')
 
 setwd(working_dir)
 
@@ -82,13 +83,8 @@ process_lib_size_tabs <- function(file, type){
 DNTX_mapping_rates <- process_lib_size_tabs(DNTX_mapping_rate_file , 'DNTX')
 gencode_mapping_rates <- process_lib_size_tabs(gencode_mapping_rate_file, 'gencode')
 
-inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>%
-    mutate(diff = (DNTX_total_reads*DNTX_percent_mapped) - (gencode_total_reads*gencode_percent_mapped) ) %>% 
-    View 
-    {sum(. < 0)}
-    pull(diff) %>% sum
     
-    median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
+median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
         inner_join(select(sample_table, sample, subtissue)) %>% 
         mutate(map_diff=DNTX_percent_mapped - gencode_percent_mapped) %>% 
         group_by(subtissue) %>% 
