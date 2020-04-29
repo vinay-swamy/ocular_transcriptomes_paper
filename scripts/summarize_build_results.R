@@ -46,14 +46,15 @@ tissue_color_mapping_df <- tibble(body_location=c('Cornea_Adult.Tissue', 'Cornea
                          'pink','purple',  'orange', 'yellow')
 )
 save(tissue_color_mapping_df, file = color_mapping_df )
-
-novel_transcripts_per_tissue <- tibble(subtissue=subtissues, 
-                                       novel_tx_count=sapply(subtissues, 
-                                                             function(x) tcons2mstrg %>% 
-                                                                 filter(!class_code %in% c('=', 'u')) %>%  .[[x]] %>% 
-                                                                 .[!is.na(.)] %>% length)) %>% 
+tcons2mstrg <- tcons2mstrg %>% mutate(is.PC = transcript_id %in% gff3$ID)
+novel_transcripts_per_tissue <- lapply(subtissues, function(x) 
+                                                tcons2mstrg %>% filter(!class_code %in% c('=', 'u')) %>%
+                                                select(is.PC, !!x) %>% filter(!is.na(.[,x])) %>% 
+                                                                    {tibble(subtissue = x,  
+                                                                            novel_pc_count=sum(.$`is.PC`),
+                                                                            novel_nc_count = sum(!.$`is.PC`)) } ) %>%  bind_rows %>% 
     left_join(sample_table %>% select(subtissue, body_location) %>% distinct ) %>% group_by(body_location) %>% 
-    summarise(novel_transcript_count=mean(novel_tx_count)) %>% left_join(tissue_color_mapping_df) %>% 
+    summarise(novel_pc_count=mean(novel_pc_count), novel_nc_count = mean(novel_nc_count)) %>% left_join(tissue_color_mapping_df) %>% 
  mutate(body_location=replace(body_location, body_location == 'Body', 'Body(avg)'),
         body_location=replace(body_location, body_location == 'Brain', 'Brain(avg)')
         )
