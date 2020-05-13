@@ -2,7 +2,7 @@
 Snakemake wrapper to generate data for occular_transcriptomes_paper
 
 '''
-
+import yaml
 def readSampleFile(samplefile):
     # returns a dictionary of dictionaries where first dict key is sample id and second dict key are sample  properties
     res={}
@@ -33,84 +33,97 @@ bedtools_version= config['bedtools_version']
 TransDecoder_version=config['TransDecoder_version']
 
 # sd_salmonexp= readSampleFile('salmon_experiment/sampletabSE.tsv')
-
+with open(config['subtissue_file']) as stfl:
+    subtissues = [line.strip('\n') for line in stfl ]
 working_dir=config['working_dir']
+longread_dir = config['longread_dir']
 data_dir=config['data_dir']
 fql=config['fastq_path']
 sample_file=config['sample_file']
-gtf_file=data_dir + 'data/gtfs/all_tissues.combined.gtf'
-exon_classification_file=data_dir + 'data/rdata/novel_exon_classification.Rdata'
-gff3_file=data_dir + 'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3'
-ref_gtf= data_dir + 'ref/gencode_comp_ano.gtf'
-tcons2mstrg=data_dir + 'data/gtfs/all_tissues.convtab'
+files_yaml = config['files_yaml']
+with open(config['files_yaml']) as fyml:
+    files=yaml.load(fyml,Loader=yaml.FullLoader)
+ref_gtf = files['ref_gtf']
 
 eye_tissues=['Retina_Adult.Tissue', 'Retina_Fetal.Tissue', 'RPE_Adult.Tissue', 'RPE_Fetal.Tissue', 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue']
 
 rule all:
     input: 'notebooks/results_v2.html'
 
-rule transcriptome_pipeline_stats:
+rule calc_txome_tx_counts_and_mapping_Rates:
     input:  
-        t2m=tcons2mstrg,
-    params: 
-        tissue='RPE_Fetal.Tissue'
+        full_anno_gtf =files['anno_gtf'],
+        tcons2mstrg = files['tcons2mstrg']
     output: 
-        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',\
-        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',\
-        tx_counts= working_dir+'clean_data/all_gtfs_tx_counts.tab',\
-        clean_data= working_dir+'clean_data/rdata/transcriptome_pipeline_stats.Rdata'
+        DNTX_mr= files['DNTX_mr'],
+        gencode_mr= files['gencode_mr'],
+        gtf_tx_counts= files['gtf_tx_counts'],
+        txcounts_mr_rdata= files['txcounts_mr_rdata']
     shell:
         '''
         bash scripts/count_stats_from_files.sh \
             {data_dir} \
             {output.DNTX_mr} \
             {output.gencode_mr} \
-            {output.tx_counts}
+            {output.gtf_tx_counts}
+             
         module load {R_version}
         Rscript scripts/transcriptome_pipeline_stats.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
-            --sampleTableFile {sample_file}\
-            --anoGtfFile {gtf_file}\
-            --tcons2mstrgFile {input.t2m}\
-            --tissue {params.tissue}\
-            --gencodeMapRateFile {output.gencode_mr}\
-            --DNTXMapRateFile {output.DNTX_mr}\
-            --gtfTxCountFile {output.tx_counts}\
-            --cleanData {output.clean_data}
+            --filesYaml {files_yaml}
         '''
 
 rule summarizeBuildResults:
     input:
-        exon_class=exon_classification_file , 
-        tc2mstrg=tcons2mstrg ,gff3=gff3_file  
+        exon_class=files['exon_class_rdata'],
+        tc2mstrg=files['tcons2mstrg'],
+        full_anno_gtf =files['anno_gtf']
+    params: 
+        cds_gtf_dir = 'clean_data/CDS_gtf/', 
+        raw_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_comp.tracking'
     output:
-        color_df=working_dir+ 'clean_data/rdata/tissue_to_colors.Rdata', 
-        plotting_data= working_dir+ 'clean_data/rdata/buildResultsSummary.Rdata'
+        color_mapping_rdata=files['color_mapping_rdata']
+        build_results_rdata= files['build_results_rdata']
     shell:
         '''
+        module load gffcompare
+        rm -rf {params.cds_gtf_dir}
+        mkdir -p {params.cds_gtf_dir}
+        awk '$3 == "CDS"' {ref_gtf} > {params.cds_gtf_dir}/gencode_CDS.gtf
+        awk '$3 == "CDS"' {input.full_anno_gtf} > {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf
+        gffcompare --strict-match -p CDSID -o {params.cds_gtf_dir}/CDS_distinct {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf {params.cds_gtf_dir}/gencode_CDS.gtf
+        gffcompare --strict-match -r {params.cds_gtf_dir}CDS_distinct.combined.gtf -o {params.cds_gtf_dir}/CDS_comp {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf   
+
         module load {bedtools_version}
         module load {R_version}
-        which R 
         Rscript scripts/summarize_build_results.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
-            --exonClassFile {input.exon_class}\
-            --gtfFile {gtf_file}\
-            --sampleTableFile {sample_file}\
-            --gff3File {input.gff3}\
-            --tcons2mstrgFile {input.tc2mstrg}\
-            --colorMappingDf {output.color_df}\
-            --dataToPlot {output.plotting_data}
+            --rawCDStrack {params.raw_cds_track} \
+            --filesYaml {files_yaml}
+   
         '''
+
+rule summarize_long_read_results:
+    output: 
+        working_dir + 'clean_data/rdata/longread_summary.Rdata'
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/summarise_longread_results.R \
+            --longReadDir {longread_dir} \
+            --cleanedData {output}
+        '''
+
 
 
 rule paper_numbers_and_sup_figs:
     input:
-        eye_gtfs=expand( data_dir+'data/gtfs/final_tissue_gtfs/{tissue}.gtf', tissue=eye_tissues), 
-        pan_body_gtf=gtf_file, 
-        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',
-        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',
+        pan_eye_gtf = files['pan_eye_gtf'],
+        all_tissue_gtf=files['anno_gtf'],
+        DNTX_mr= files['DNTX_mr'],
+        gencode_mr= files['gencode_mr']
     params: 
         final_gtf_dir = data_dir + 'data/gtfs/final_gtfs/', 
         raw_gtf_dir = data_dir + 'data/gtfs/raw_tissue_gtfs/', 
@@ -141,15 +154,19 @@ rule paper_numbers_and_sup_figs:
 
 
 rule novel_isoforms_ocular_tissues:
-    input: quant = data_dir + 'data/all_tissue_quant.Rdata', gtf_ano_file = data_dir + 'data/gtfs/all_tissues.combined_NovelAno.gtf'
-    output: outdata= working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
+    input: 
+        quant = files['all_tissue_quant'], 
+        exon_class_rdata = files['exon_class_rdata'],
+        gtf_ano_file = files['anno_gtf']
+    output: 
+        outdata= working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
     shell:
         '''
         module load {R_version}
         Rscript scripts/novel_isoforms_ocular_tissues.R \
             --workingDir {working_dir} \
             --dataDir {data_dir} \
-            --novelExonClassFile {exon_classification_file} \
+            --novelExonClassFile {input.exon_class_rdata} \
             --gtfFile {input.gtf_ano_file} \
             --sampleTableFile {sample_file} \
             --tcons2mstrgFile {tcons2mstrg} \
@@ -158,6 +175,34 @@ rule novel_isoforms_ocular_tissues:
             
         '''
 
+rule process_VEP:
+    input: 
+        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+    output: 
+        all_variant_results = working_dir + 'clean_data/rdata/vep_all_alleles.Rdata',
+        example_variant_results = working_dir +'clean_data/rdata/vep_eye_example.Rdata'
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/process_VEP.R \
+        --dataDir {data_dir} \
+        --allVariantFile   {output.all_variant_results} \
+        --exampleVariantFile {output.example_variant_results}     
+        '''
+
+
+rule process_hmmer:
+    input:
+        data_dir + 'data/novel_loci/hmmer/seq_hits.tsv'
+    output:
+        working_dir + 'clean_data/rdata/hmmer_results.Rdata'
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/process_HMMER.R \
+            --dataDir {data_dir} \
+            --filesYaml {files_yaml}
+        '''
 # rule novel_tx_in_fetal_retina_analysis:
 #     input:eiad='clean_data/EiaD_quant.Rdata', tc2mstrg=tcons2mstrg , gff3=gff3_file
 #     output:working_dir+ 'clean_data/rdata/fetal_novel_de_results.Rdata',working_dir+ 'clean_data/fetal_de_novel_tx.txt', working_dir+ 'clean_data/rdata/fetal_novel_de_hm.Rdata'
@@ -176,14 +221,17 @@ tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.
 
 
 rule knit_notebooks:
-    input: \
-    working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', \
-    working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', \
-    working_dir + 'clean_data/rdata/novel_isoforms.Rdata', \
-    working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata' 
+    input: 
+        working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', 
+        working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', 
+        working_dir + 'clean_data/rdata/novel_isoforms.Rdata', 
+        working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata', 
+        working_dir + 'clean_data/rdata/longread_summary.Rdata',
+        working_dir +'clean_data/rdata/vep_eye_example.Rdata' 
     #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
     #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
-    output: 'notebooks/results_v2.html'
+    output: 
+        'notebooks/results_v2.html'
     shell:
         '''
         module load {R_version}
