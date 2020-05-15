@@ -8,12 +8,8 @@ library(argparse)
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action='store', dest='working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
-parser$add_argument('--novelExonClassFile', action = 'store', dest = 'novel_exon_class')
-parser$add_argument('--gtfFile', action = 'store', dest = 'gtf_file')
-parser$add_argument('--sampleTableFile', action = 'store', dest= 'sample_table_file')
-parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons_2_mstrg_file')
-parser$add_argument('--quantFile', action = 'store', dest = 'quant_file')
-parser$add_argument('--cleanData', action = 'store', dest = 'clean_outdata')
+parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
+
 list2env(parser$parse_args(), .GlobalEnv)
 
 
@@ -29,19 +25,19 @@ list2env(parser$parse_args(), .GlobalEnv)
 
 
 setwd(working_dir)
-load(novel_exon_class)
+load(files$exon_class_rdata)
 
 all_novel_tx <- c(novel_transcripts$transcript_id, novel_loci_distinct$transcript_id)
-gtf <- rtracklayer::readGFF(gtf_file)
+gtf <- rtracklayer::readGFF(files$anno_gtf)
 anno_tab <- gtf %>% filter(type == "transcript") %>% select(transcript_id, gene_name, oId)
-tc2ms <- read_tsv(tcons_2_mstrg_file) %>% filter(!transcript_id %in% novel_loci_distinct$transcript_id)
+tc2ms <- fread(files$tcons2mstrg) %>% filter(!transcript_id %in% novel_loci_distinct$transcript_id)
 eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue',
                  'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue', "ESC_Stem.Cell.Line", "Lens_Stem.Cell.Line")
 brain_tissues <- tc2ms %>% select(contains('Brain')) %>% colnames
 body_tissues <- tc2ms %>% select(-transcript_id, -class_code, -eye_tissues, -brain_tissues) %>% colnames 
 
 
-sample_table <- read_tsv(sample_table_file)
+sample_table <- read_tsv(files$sample_table)
 
 ## prep data 
 
@@ -83,7 +79,7 @@ upset(fromList(novel_eye_fetal))
 sample_table_eye <- sample_table %>% filter(subtissue %in% eye_tissues)
 
 t2g <- gtf %>% filter(type == 'transcript') %>% select(transcript_id, gene_name) %>% distinct
-load(quant_file)
+load(files$all_tissue_quant)
 all_quant[is.na(all_quant)] <- 0
 counts_eye <- all_quant[,c('transcript_id', sample_table_eye$sample)]
 counts_eye_by_tissue <- lapply(eye_tissues,
@@ -216,19 +212,8 @@ res <- lapply(tissues, summarise_novel_transcripts_in_tissue)
 location_df <- lapply(res, function(x) x[['loc_df']]) %>% bind_rows %>% gather(location, count, -age, -tissue)
 piu_df <- lapply(res, function(x) x[['piu_df']]) %>% bind_rows
 
-p <- ggboxplot(piu_df, x='stage', y='piu', color = 'tissue',
-               title ='Comparison of percent isoform usage(piu) of novel \ntranscripts in fetal and adult eye tissues')+
-    stat_compare_means(label.y = 1.1) +
-    scale_color_manual(values = c('green', 'blue', 'red'))
-facet(p,facet.by = 'tissue')+
-    theme_minimal()
 
-ggplot(location_df) + 
-    geom_bar(aes(x=age, fill=location, y=count), position = 'fill', stat = 'identity' ) + 
-    facet_wrap(~ tissue) + 
-    ylab('percentage of novel exons') + 
-    ggtitle('location of novel exons in occular tissues')
-save(novel_tx_by_tissue, novel_eye_tx_by_tissue, piu_df, location_df, file = clean_outdata)
+save(novel_tx_by_tissue, novel_eye_tx_by_tissue, piu_df, location_df, file = files$novel_isoform_analysis_rdata)
 
 
 

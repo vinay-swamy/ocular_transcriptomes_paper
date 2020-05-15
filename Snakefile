@@ -83,7 +83,7 @@ rule summarizeBuildResults:
         cds_gtf_dir = 'clean_data/CDS_gtf/', 
         raw_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_comp.tracking'
     output:
-        color_mapping_rdata=files['color_mapping_rdata']
+        color_mapping_rdata=files['color_mapping_rdata'],
         build_results_rdata= files['build_results_rdata']
     shell:
         '''
@@ -116,40 +116,21 @@ rule summarize_long_read_results:
             --cleanedData {output}
         '''
 
-
-
 rule paper_numbers_and_sup_figs:
     input:
         pan_eye_gtf = files['pan_eye_gtf'],
         all_tissue_gtf=files['anno_gtf'],
         DNTX_mr= files['DNTX_mr'],
         gencode_mr= files['gencode_mr']
-    params: 
-        final_gtf_dir = data_dir + 'data/gtfs/final_gtfs/', 
-        raw_gtf_dir = data_dir + 'data/gtfs/raw_tissue_gtfs/', 
-        ref_tx_exon_rdata = data_dir + 'rdata/all_ref_tx_exons.rdata', 
-        core_tight_file = data_dir + 'ref/core_tight.Rdata'
     output: 
-        pan_eye_gtf = 'clean_data/pan_eye_txome.combined.gtf', 
-        clean_data = working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata'
+        clean_data = files['paper_numbers_rdata']
     shell:
         '''
-        module load gffcompare 
         module load {R_version}
-        gffcompare -r {ref_gtf} --strict-match -o clean_data/pan_eye_txome {input.eye_gtfs} 
         Rscript scripts/paper_numbers_sup_figs.R \
             --workingDir {working_dir} \
             --dataDir {data_dir} \
-            --sampleTableFile {sample_file} \
-            --allTissueGtf {input.pan_body_gtf} \
-            --EyeOnlyGtf {output.pan_eye_gtf} \
-            --pathToRawGtfs {params.raw_gtf_dir} \
-            --allRefAno {params.ref_tx_exon_rdata} \
-            --coreTight {params.core_tight_file} \
-            --outNumFile {output.clean_data} \
-            --dntxMapRate {input.DNTX_mr} \
-            --gencodeMapRate {input.gencode_mr}
-
+            --filesYaml {files_yaml}
         '''
 
 
@@ -159,19 +140,14 @@ rule novel_isoforms_ocular_tissues:
         exon_class_rdata = files['exon_class_rdata'],
         gtf_ano_file = files['anno_gtf']
     output: 
-        outdata= working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
+        outdata= files['novel_isoform_analysis_rdata']
     shell:
         '''
         module load {R_version}
         Rscript scripts/novel_isoforms_ocular_tissues.R \
             --workingDir {working_dir} \
             --dataDir {data_dir} \
-            --novelExonClassFile {input.exon_class_rdata} \
-            --gtfFile {input.gtf_ano_file} \
-            --sampleTableFile {sample_file} \
-            --tcons2mstrgFile {tcons2mstrg} \
-            --quantFile {input.quant} \
-            --cleanData {output.outdata}
+            --filesYaml {files_yaml}
             
         '''
 

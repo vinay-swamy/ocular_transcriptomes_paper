@@ -13,50 +13,37 @@ SUP FIGS
 library(tidyverse)
 library(RBedtools)
 library(argparse)
-# args <- list(
-#     working_dir= '/Volumes/data/ocular_transcriptomes_paper/', 
-#     data_dir= '/Volumes/data/ocular_transcriptomes_pipeline/',
-#     sample_table_file= '/Volumes/data/ocular_transcriptomes_pipeline/sampleTableFull.tsv', 
-#     pan_body_gtf_file= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/all_tissues.combined.gtf',
-#     pan_eye_gtf_file= '/Volumes/data/ocular_transcriptomes_paper/clean_data/pan_eye_txome.combined.gtf',
-#     path_to_raw_tissues_gtfs= '/Volumes/data/ocular_transcriptomes_pipeline/data/gtfs/raw_tissue_gtfs/',
-#     all_ref_ano= '/Volumes/data/ocular_transcriptomes_pipeline/rdata/all_ref_tx_exons.rdata',
-#     core_tight_file= '/Volumes/data/ocular_transcriptomes_pipeline/ref/core_tight.Rdata',
-#     out_num_file=  '/Volumes/data/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers.Rdata')
-# list2env(args, .GlobalEnv)
+
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action = 'store', dest = 'working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
-parser$add_argument('--sampleTableFile', action = 'store', dest = 'sample_table_file')
-parser$add_argument('--allTissueGtf', action = 'store', dest = 'pan_body_gtf_file')
-parser$add_argument('--EyeOnlyGtf', action = 'store', dest = 'pan_eye_gtf_file')
-parser$add_argument('--pathToRawGtfs', action = 'store', dest = 'path_to_raw_tissues_gtf')
-parser$add_argument('--allRefAno', action = 'store', dest = 'all_ref_ano')
-parser$add_argument('--coreTight', action = 'store', dest = 'core_tight_file')
-parser$add_argument('--outNumFile', action = 'store', dest = 'out_num_file')
-parser$add_argument('--dntxMapRate', action = 'store', dest = 'DNTX_mapping_rate_file')
-parser$add_argument('--gencodeMapRate', action = 'store', dest = 'gencode_mapping_rate_file')
+parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 list2env(parser$parse_args(), .GlobalEnv)
-save.image('testing/pnsp_Args.Rdata')
+
+###
+files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+
+###
+
 
 setwd(working_dir)
+files <- read_yaml(files_yaml)
 
-
-sample_table <- read_tsv(sample_table_file)
+sample_table <- read_tsv(files$sample_table)
 NUM_TOTAL_SAMPLES <- nrow(sample_table)
 NUM_EYE_SAMPLES <- sample_table %>% filter(!body_location %in% c('Brain', 'Body')) %>% nrow 
 NUM_BODY_SAMPLES <- sample_table %>% filter(body_location %in% c('Brain', 'Body')) %>% nrow 
 NUM_BODY_TISSUES <- sample_table %>% filter(body_location %in% c('Brain', 'Body')) %>% 
     pull(subtissue) %>% unique %>% length 
 
-pan_body_gtf <- rtracklayer::readGFF(pan_body_gtf_file)
-pan_eye_gtf <- rtracklayer::readGFF(pan_eye_gtf_file)
+pan_body_gtf <- rtracklayer::readGFF(files$anno_gtf)
+pan_eye_gtf <- rtracklayer::readGFF(files$pan_eye_gtf)
 NUM_REF_TX_BODY <- pan_body_gtf %>% filter( type == 'transcript', class_code=='=')%>% nrow 
 NUM_REF_TX_EYE  <- pan_eye_gtf  %>% filter( type == 'transcript', class_code=='=')%>% nrow 
 
 NUM_NOVEL_TX_BODY <- pan_body_gtf %>% filter( type == 'transcript', class_code!='=')%>% nrow 
 NUM_NOVEL_TX_EYE  <- pan_eye_gtf  %>% filter( type == 'transcript', class_code!='=')%>% nrow 
-load(all_ref_ano)
+load(files$ref_tx_exon_rdata)
 all_exon_bed <- all_exons %>% mutate(score= 888) %>% select(seqid, start, end, origin, score, strand) %>% 
     from_data_frame %>% 
     RBedtools('sort', i=.)
@@ -80,8 +67,8 @@ process_lib_size_tabs <- function(file, type){
     return(df)
 }
 
-DNTX_mapping_rates <- process_lib_size_tabs(DNTX_mapping_rate_file , 'DNTX')
-gencode_mapping_rates <- process_lib_size_tabs(gencode_mapping_rate_file, 'gencode')
+DNTX_mapping_rates <- process_lib_size_tabs(files$DNTX_mr , 'DNTX')
+gencode_mapping_rates <- process_lib_size_tabs(files$gencode_mr, 'gencode')
 
     
 median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
@@ -98,7 +85,7 @@ median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_ra
 
 ## SUPPLEMENTARY FIGURES 
 #---- 
-load(core_tight_file)
+load(files$core_tight_rdata)
 
-save(list= ls()[grepl('NUM_', ls())], file = out_num_file)
+save(list= ls()[grepl('NUM_', ls())], file = files$paper_numbers_rdata)
 

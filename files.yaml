@@ -12,3 +12,8 @@ all_tissue_quant: dumm_quant
 color_mapping_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata
 hmmer_dir: /data/swamyvs/ocular_transcriptomes_pipeline/data/novel_loci/hmmer/
 hmmer_results: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/hmmer_results.Rdata
+build_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/buildResultsSummary.Rdata 
+ref_tx_exon_rdata: /data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/all_ref_tx_exons.rdata
+core_tight_rdata: /data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/core_tight.Rdata
+paper_numbers_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers_and_sup_figs.Rdata
+novel_isoform_analysis_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/novel_isoforms.Rdata
