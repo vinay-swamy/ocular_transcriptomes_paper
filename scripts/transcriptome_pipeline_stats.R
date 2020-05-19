@@ -21,9 +21,9 @@ parser$add_argument('--workingDir', action='store', dest='working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 #######
-working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
-data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
-files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+# working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+# data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
+# files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
 #######
 list2env(parser$parse_args(), .GlobalEnv)
 files <- read_yaml(files_yaml)
@@ -87,7 +87,7 @@ all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rate
     mutate(build=ifelse(build == 'DNTX_percent_mapped', 'DNTX', 'gencode'))
 
 
-save(median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = files$txome_stats_rdata)
+save(median_sample_mapping_rates,all_sample_mapping_rates,all_sample_mapping_rate_difference, tx_counts,  file = files$txome_stats_rdata)
 
 
 

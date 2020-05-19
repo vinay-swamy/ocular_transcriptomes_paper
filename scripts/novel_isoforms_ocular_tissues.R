@@ -1,6 +1,6 @@
 library(tidyverse)
 library(data.table)
-#library(enrichR)
+library(enrichR)
 library(yaml)
 library(matrixStats)
 library(argparse)

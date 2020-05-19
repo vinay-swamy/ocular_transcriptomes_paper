@@ -13,6 +13,7 @@ SUP FIGS
 library(tidyverse)
 library(RBedtools)
 library(argparse)
+library(yaml)
 
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action = 'store', dest = 'working_dir')
@@ -21,7 +22,8 @@ parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 list2env(parser$parse_args(), .GlobalEnv)
 
 ###
-files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+# working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+# files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
 
 ###
 
@@ -77,15 +79,22 @@ median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_ra
         group_by(subtissue) %>% 
         summarise(med_diff=median(map_diff), med_libsize=median(gencode_total_reads) ) %>% arrange(desc(med_diff)) %>% 
         mutate(med_num_reads_gained = med_diff * med_libsize) #%>% 
-        left_join(tx_counts) %>% left_join(nsamp_by_tissue)
+        #left_join(tx_counts) %>% left_join(nsamp_by_tissue)
 
+load(files$gencode_quant)
+subtissues <- unique(sample_table$subtissue)
+calc_txome_size <- function(t_tissue){
+    samples <- filter(sample_table, subtissue == t_tissue) %>% pull(sample) 
+    all_exp <- sum(rowSums(gencode_quant[,samples]) != 0)
+    avg_1tpm <- sum(rowMeans(gencode_quant[,samples]) >=1)
+    return(tibble(subtissue = t_tissue, all_exp = all_exp, avg_1tpm = avg_1tpm))
+}
 
-
-
+gencode_tx_size <- lapply(subtissues, calc_txome_size) %>% bind_rows()
 
 ## SUPPLEMENTARY FIGURES 
 #---- 
 load(files$core_tight_rdata)
 
 save(list= ls()[grepl('NUM_', ls())], file = files$paper_numbers_rdata)
-
+save(gencode_tx_size, file = files$sup_fig_data)
