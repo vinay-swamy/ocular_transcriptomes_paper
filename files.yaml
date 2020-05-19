@@ -15,5 +15,10 @@ hmmer_results: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/hmmer_
 build_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/buildResultsSummary.Rdata 
 ref_tx_exon_rdata: /data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/all_ref_tx_exons.rdata
 core_tight_rdata: /data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/core_tight.Rdata
-paper_numbers_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers_and_sup_figs.Rdata
+paper_numbers_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/paper_numbers.Rdata
 novel_isoform_analysis_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/novel_isoforms.Rdata
+gencode_quant: /data/swamyvs/ocular_transcriptomes_pipeline/data/rdata/gencode_quant.Rdata
+sup_fig_data: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/sup_figs.Rdata
+clinvar_summary: /data/swamyvs/ocular_transcriptomes_pipeline/ref/clinvar_variant_summary.txt.gz
+all_variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_all_alleles.Rdata
+example_variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_eye_example.Rdata

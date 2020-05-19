@@ -156,8 +156,8 @@ rule process_VEP:
     # input: 
     #     expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
     output: 
-        all_variant_results = working_dir + 'clean_data/rdata/vep_all_alleles.Rdata',
-        example_variant_results = working_dir +'clean_data/rdata/vep_eye_example.Rdata'
+        all_variant_results = files['all_variant_results_rdata'],
+        example_variant_results = files['example_variant_results_rdata']
     shell:
         '''
         module load {R_version}
