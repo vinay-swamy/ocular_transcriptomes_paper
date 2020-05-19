@@ -25,7 +25,7 @@ library(RColorBrewer)
 library(ComplexHeatmap)
 library(ComplexUpset)
 library(ggrepel)
-#library(ggpubr)
+library(ggpubr)
 library(patchwork)
 library(knitr)
 library(grid)
@@ -36,8 +36,9 @@ load('/data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/core_tight.Rdata')
 tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
 load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
-core_tight <- core_tight %>% select(sample=sample_accession, study=study_accession) %>% distinct
-load('clean_data/rdata/paper_numbers_and_sup_figs.Rdata')
+core_tight <- core_tight %>% as_tibble %>% select(sample=sample_accession, study=study_accession) %>% distinct
+#load('clean_data/rdata/paper_numbers_and_sup_figs.Rdata')
+load('clean_data/rdata/longread_summary.Rdata')
 ```
 
 # Introduction
@@ -74,7 +75,7 @@ We aligned each sample to the Gencode V28 hg38 assembly using the genomic aligne
 
 ## Identification of protein coding novel transcripts. 
 
-|        We identified protein coding transcripts in our unified transcriptome using the TransDecoder suite.[-@haas_novo_2013] We extracted transcript sequences using the util script gtf_genome_to_cdna_fasta.pl and used TransDecoder to find a single best open reading frame from each transcript. Transcripts with no detectable open reading frame were considered noncoding. We used TransDecoder utility script cdna_alignment_orf_to_genome_orf.pl to create a gff3 annotation for all protein coding transcripts.
+|        We identified protein coding transcripts in our unified transcriptome using the TransDecoder suite.[-@haas_novo_2013] We extracted transcript sequences using the util script gtf_genome_to_cdna_fasta.pl and used TransDecoder to find a single best open reading frame from each transcript.We used the agat_sp_add_start_stop.pl scripts from the AGAT tool to identify start and stop codons for each ORF. Transcripts with no detectable ORF or missing a start or stop codon were marked as noncoding. 
 
 ## Prediction of novel loci function 
 Protein coding novel loci were compared to the uniprot protein sequence data base using blastp<cite>. Blastp results were integrated with hmmer<cite>, which identified protein families and domains associated with each novel loci
@@ -91,7 +92,6 @@ Protein coding novel loci were compared to the uniprot protein sequence data bas
 
 
 # Results 
-
 
 ## Long Read Pacbio RNA sequencing guides *de novo* transcriptome construction
 In order to determine the accuracy of short read transcriptome construction, we first generated PacBio long read RNA-seq data from a stem cell derived RPE cell line. As long read  sequencing capture errors due to short read sequencing and transcriptome construction are mitigated. When comparing the construction accuracy(methods) between the two builds, we see little concordance between the two builds. 
@@ -134,18 +134,13 @@ tpm_exp_plot <-  ggplot(data = tpm_df_plotting, aes(x=co, y=acc, color=`Length I
 
 ```
 
-
-
 When examining the transcript lengths of each build we see that the short read build is comprised mostly of smaller transcripts. As the PacBio data was generted using two librarys for XXXBP and YYYBP, this is expected. To get a better sense of accuracy, we group transcripts by length, and compare accruacy between length group
 
 ```{r}
-load('clean_data/rdata/longread_summary.Rdata')
 acc_df_by_length %>% select(`Length Group` = qbin_pretty, `Construction Accuracy` = stringtie_acc)
 ```
 
-This lead to XX% increase in accuracy, but still overall low accuracy. We also see a clear iniability for pacbio to detect transcripts below 2000 base pairs 
-
-
+This lead to XX% increase in accuracy, but still overall low accuracy. We also see a clear iniability for pacbio to detect transcripts below 2000 base pairs at this library size preparation. Within the stringtie build we see that many of the constructed transcripts are below this level, and therefore cannot be directly compared. 
 
 We experimented with various methods to remove spurious transcirpts to improve construction accuracy, and found that removing transcripts that were expressed below an average TPM threshold was the most effective. We note that this is significanlty better than using the default filtering scheme provided in stringtie. In our downstream pipeline we use an average TPM of 1 as our filtering threshold, as this achiaeves XXX% accuracy in transcripts longer than 2000BP.
 
@@ -169,150 +164,68 @@ Table 1. Ocular sample dataset. Transcriptome size is defined as the number of u
 :::
 
 |       We built transcriptomes from `r toString(NUM_EYE_SAMPLES)` previously published, publicly available ocular tissue RNA-seq samples using an efficient snakemake pipeline.(sup fig 1) We include both adult and fetal tissue from the Cornea, Retina, Retinal Pigmented Epithelium (RPE) mined from `r toString(NUM_STUDIES)` different studies (Table 1). Our fetal tissues consist of both human fetal tissues and human induced pluripotent stem cell (iPSC) derived tissue, as stem cell dervied tissue has been show to closely resemble fetal tissue.<cite> To more accurately determine tissue specificity of novel ocular transcripts,  we supplemented our ocular data set with `r toString(NUM_BODY_SAMPLES)` samples across `r toString(NUM_BODY_TISSUES)` body locations from the GTEx project and constructed transcriptomes for each of these body locations. We refer to each distinct body location as a subtissue here after.
-|               After initial construction of transcripts, we found over two million distinct transcripts across all our samples. Because we observed that many of these transcripts were detected in one or two samples (sup fig 2) we refined our set of transcriptomes using series of filtering steps (methods) to remove low confidence transcripts. Our final transcriptome across all tissues contains `r toString(NUM_TOTAL_TX_BODY)` distinct transcripts with `r toString(NUM_REF_TX_BODY)` previously annotated and `r toString(NUM_NOVEL_TX_BODY)` novel transcripts, and incudes `r toString(NUM_TOTAL_NOVEL_SEQ/1000000)` megabases of previously unannotated genomic sequence. We define novel as any region of genomic sequence that is not found in Gencode, Ensembl and Refseq annotation databases. [-@frankish_gencode_2019],[-@zerbino_ensembl_2018],[-@oleary_reference_2016] Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence.
+|               After initial construction of transcripts, we found over two million distinct transcripts across all our samples. Because we observed that many of these transcripts were detected in one or two samples (sup fig 2) we refined our set of transcriptomes using series of filtering steps (methods) to remove low confidence transcripts. Our final transcriptome across all tissues contains `r toString(NUM_TOTAL_TX_BODY)` distinct transcripts with `r toString(NUM_REF_TX_BODY)` previously annotated and `r toString(NUM_NOVEL_TX_BODY)` novel transcripts, and incudes `r toString(NUM_TOTAL_NOVEL_SEQ/1000000)` megabases of previously unannotated genomic sequence. We define novel as any region of genomic sequence that is not found in Gencode, Ensembl and Refseq annotation databases. [-@frankish_gencode_2019],[-@zerbino_ensembl_2018],[-@oleary_reference_2016] Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence. novel isoforms are further classified by the novelty of its encoded protien, ie novel ORF, a novel isoform with a known ORF, and isofroms with no orf aka noncoding isoforms.
 
-
-```{r transcriptome_pipeline_stats, fig.height=13, fig.width=16}
-#  novel_loci bar graph, novel isoform bargraphs initial tx count, final tx count
-make_stack_bar_subset <- function(df, which_subset){
-  #df: a df with follwowing columns: group, label, count
-  #which_subset a named list mapping group to specific label subset 
-  group_list <- split(df, df$group)
-  group_list <- group_list[unique(df$group)]
-  #stopifnot(length(group_list) - 1 == length(which_subset))
-  make_df_bar <- function(df, i){
-    df$weight <- cumsum(df$count) / sum(df$count)
-    df$X <- (i-.25)
-    df$Xend <- (i+.25)
-    df$Y <- c(0,df$weight[1:nrow(df)-1])
-    df$Yend <- df$weight 
-    return(df)
-  }
-  make_df_line <- function(df_bar, c_label, c_group){
-    c_label_df <- filter(df_bar,group == c_group, label ==  c_label)
-    tibble(X = max(c_label_df$Xend),
-           Xend = X + .5, 
-           Y = c(c_label_df$Y[1], c_label_df$Yend[1]),
-           Yend = c(0,1)
-    )
-           
-  }
-  
-  df_bar <- lapply(seq_along(group_list), function(i) make_df_bar(group_list[[i]], i) ) %>% bind_rows()
-  df_line <- lapply(seq_along(which_subset), 
-                    function(i) make_df_line(df_bar, which_subset[i], names(which_subset) [i])) %>% bind_rows
-  
- plot <- ggplot(data = df_bar) + 
-    geom_rect(aes(xmin = X, ymin= Y, xmax = Xend, ymax=Yend,  fill = label, color = label)) + 
-    geom_segment(data = df_line, aes(x=X,y=Y, xend = Xend, yend= Yend), color = 'black')+
-    scale_x_discrete(limits = unique(df_bar$group) )+
-    xlab(element_blank()) +
-    ylab(element_blank()) +
-    theme(panel.background = element_rect(fill = 'white'), legend.title = element_blank() )
-  
-  return(plot) 
-}
-
-
+```{r  fig.height=13, fig.width=16}
 load('clean_data/rdata/buildResultsSummary.Rdata')
-novel_transcripts_per_tissue <- novel_transcripts_per_tissue %>% filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+
+novel_isoforms_per_tissue <- inner_join(novel_transcripts_per_tissue, novel_orfs_per_tissue) %>% 
+  select(-novel_pc_count) %>% 
+  gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
+  filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
 color_list<- novel_transcripts_per_tissue$color
 names(color_list) <- novel_transcripts_per_tissue$body_location
-
-novel_transcripts_per_tissue <- novel_transcripts_per_tissue %>% 
-   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
-  filter(transcript_type!='color',!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%    
-  mutate(counts=as.numeric(counts), body_location_pretty=gsub('_|\\.', ' ', body_location), 
-         transcript_type = ifelse(transcript_type == 'novel_pc_count', 'pc_tx', 'nc_tx'))
-
-
-isoforms <- ggplot(data = novel_transcripts_per_tissue) +
-  geom_col(aes(x=body_location_pretty, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+isotype_per_tissue <- ggplot(data = novel_isoforms_per_tissue) +
+    geom_col(aes(x=transcript_type, y=counts, fill = body_location), position = 'dodge') +
     scale_fill_manual(values = color_list) +
     scale_alpha_discrete(range=c(.5,1)) +
     ggtitle('Novel Isoforms Contructed Across the Body')+
     ylab('number of novel transcripts')+
     xlab('Body Location')+
-    theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
-novel_loci_per_tissue <- novel_loci_per_tissue %>% 
-  gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
-  filter(transcript_type!='color',!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%    
-  mutate(counts=as.numeric(counts), body_location_pretty=gsub('_|\\.', ' ', body_location))
+    theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())+
+    facet_wrap(~body_location)
 
-novel_exons <- make_stack_bar_subset(exon_count_df %>% arrange(desc(group)), c('Novel Isoform' = 'Novel Exon'))
+novel_transcript_types <-  novel_isoform_anno_df %>% filter(label != 'Protein Coding') %>% 
+  mutate(group = 'Transcript Type') %>% 
+  rename(`Transcript Type` = label) %>% 
+  ggplot(data = ., aes(x = group, fill = `Transcript Type`, y=count)) +
+  geom_bar(position = 'fill',stat = 'identity') +
+  geom_text(aes(label = count), position = position_fill(vjust=.5)) +
+  ylab('% of all novel transcripts') +
+  theme(panel.background = element_blank(), axis.title.x = element_blank())
 
-loci <- ggplot(data = novel_loci_per_tissue) +
-    geom_col(aes(x=body_location_pretty, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
-    scale_fill_manual(values = color_list) +
-    scale_alpha_discrete(range=c(.5,1)) +
-    ggtitle('Novel Loci constructed in Occular Tissues', ) +
-    ylab('number of novel loci detected') +
-    xlab('Body Location\n\n\n') +
-    theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+novel_exon_types <- exon_type_by_transcript_type %>% group_by(nv_type_rc) %>% 
+  summarise(count = n()) %>% 
+  mutate(group =  'Novel Exon Type') %>% 
+  rename(`Novel Exon Type` = nv_type_rc) %>% 
+  ggplot(data = ., aes(x = group, fill = `Novel Exon Type`, y=count)) +
+  geom_bar(position = 'fill',stat = 'identity') +
+  geom_text(aes(label = count), position = position_fill(vjust=.5)) +
+  ylab('% of all novel transcripts') +
+  theme(panel.background = element_blank(), axis.title.x = element_blank())
+  
+exon_type_tx_plot <- exon_type_by_transcript_type %>% 
+  group_by(comp_transcript_type, nv_type_rc) %>% 
+  summarise(count = n()) %>% 
+  ggplot(data=., aes(x  = comp_transcript_type,y=count, fill = nv_type_rc)) +
+  geom_bar(position = 'fill', stat = 'identity')+
+  geom_text(aes(label = count), position = position_fill(vjust=.5)) +
+  ylab('% of Transcripts') +
+  theme(panel.background = element_blank(), axis.title.x = element_blank())
 
-# p0 <- ggarrange(isoforms, loci, ncol = 2, labels = c('A', 'B'), font.label = list(size=25))
-# p1 <- annotate_figure(novel_exons, fig.lab = 'C', fig.lab.pos = 'top.left', fig.lab.size = 25)
-# ggarrange(p0, p1, nrow=2)
-layout <- '
-AC
-BC'
-isoforms +loci+ novel_exons+plot_layout(design = layout)  +plot_annotation(tag_levels = 'A')
+isotype_per_tissue + ((novel_transcript_types + novel_exon_types) / exon_type_tx_plot ) +plot_annotation(tag_levels = 'A')
 
 ```
-
-
 
 
 ::: {custom-style="CustomCaption"}
 Figure 1 (A, B) Number of novel gene isoforms and novel loci constructed across ocular and other body tissues. Brain and body represent an average of 13 and 34 distinct subtissues, respectively (C -) Classification of novel gene isoforms based on source of novelty.
 :::
 
-|        Novel isoforms occur due to a novel arrangement of known exons or contain a novel exon, which in turn is either a modification of a known exon to generate a novel modified exon, or an addition of a previously unannotated exon, or fully novel exon. For both classes of novel exon, we further annotated them with the putative biological process driving their inclusion: alternative splicing, alternative promoter usage, or alternative polyadenylation. We found that the majority of novel exons with our dataset are novel first and last exons.
-
+|        Novel isoforms occur due to a novel arrangement of known exons or contain a novel exon. A novel arrangment of known exons presents as the ommission of one or more exons, where as novel exons are either a modification of a known exon to generate a novel modified exon, or an addition of a previously unannotated  cryptic exon. For novel exon, we further annotated them with the putative biological process driving their inclusion: alternative splicing -> A3SS/A5SS , alternative promoter usage -> novel TES, or alternative polyadenylation -> Novel TES.
+We found that the majority of novel exons with our dataset are novel first and last exons. We see that the majority of A5SS exons lead to novel protein coding isoforms, where as novel TES/TSS more often lead to noncoding isoforms. Retained introns mostly commonly lead to a novel isoform.
 ## *de novo* transcriptomes improve sample mapping rates 
-
-```{r, fig.width=8, fig.height=12}
-
-
-
-
-all_sample_mapping_rates <- all_sample_mapping_rates %>%
-  filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
-  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),                                                              body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
-                                  TRUE ~ body_location))
-
-median_sample_mapping_rates %>% inner_join(subtissue_to_bodyloc) %>% group_by(body_location) %>% 
-  summarise(mean_med_diff = mean(med_diff))
-
-
-# ggplot(data = all_sample_mapping_rates)  +
-#   geom_boxplot(aes(x=build, y=mapping_rate, color=body_location)) +
-#   scale_color_manual(values = color_list) +
-#   facet_wrap(~body_location, nrow = 3, ) +
-#   ylab('Salmon Mapping Rate') +
-#   xlab('Transcriptome build') +
-#   theme_minimal()
-
-
-p <- ggboxplot(all_sample_mapping_rates, x='build', y='mapping_rate', color = 'body_location') +
-  stat_compare_means(ref.group = 'gencode', method = 'wilcox.test', method.args = list(alternative = "less"))
-facet(p, facet.by = 'body_location')
-
-# k <- '
-# 
-# ::: {custom-style="CustomCaption"}
-# Figure 3 Salmon pseudo-mapping rates using both tissue -specific *de novo* transcriptome and gencode transcriptomes as the underlying reference for salmon. 
-# :::
-# 
-# 
-# 
-# '
-
-```
-
-|        As an initial benchmark of the accuracy and utility of our transcriptome builds, we quantified transcript expression of our samples using the alignment-free quantification tool Salmon. Each sample was quantified twice: once using the gencode V27 human transcript annotation, and once using its associated tissue specific transcriptome. We found that globally, Salmon mapping rates showed no statistically significant decrease in mapping rate when using the *de novo* transcriptomes except for Fetal Retina. This is  despite an average of 3 -fold reduction in annotation size.
-
 
 ## Novel Isoforms in Ocular tissues 
 
@@ -323,9 +236,9 @@ plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_
 all_tx <- tibble(transcript_id = reduce(plot_list, union))
 plot_df <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x))
 FIG_FONT_SIZE=12
-us <- upset(data = plot_df, 
+us <- ComplexUpset::upset(data = plot_df, 
       intersect = colnames(plot_df)[-1], 
-      min_size= 25, 
+      min_size= 100, 
       set_sizes = F,
       #height_ratio = .8, 
       #width_ratio = .1,
@@ -336,14 +249,14 @@ us <- upset(data = plot_df,
       themes=upset_modify_themes(
         list(
           "intersections_matrix"= theme(text = element_text(size=FIG_FONT_SIZE) ),
-          "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE) ),
+          "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE, angle = -45) ),
           "overall_sizes"= theme(axis.text.x=element_text(angle=45),text = element_text(size=FIG_FONT_SIZE) ),
           "default"= theme(text = element_text(size=FIG_FONT_SIZE) ) 
             )
        )
       
       )
-
+us
 
 ### PIU
 # p <- ggviolin(piu_df, x='stage', y='piu', #fill = 'tissue', 
@@ -367,15 +280,15 @@ piu <- ggplot(data=piu_df, aes(x=stage, y=piu, fill=subtissue, color=subtissue))
   ylab('piu')+xlab('tissue')+coord_flip()+ theme_minimal()+ facet_wrap(~tissue, nrow = 3)
 
 ### exon locations
-locs <- ggplot(location_df) + 
-    geom_bar(aes(x=age, fill=location, y=count), position = 'fill', stat = 'identity' ) +
-    scale_fill_manual(values = c('yellow', 'purple', 'orange')) +
-    facet_wrap(~ tissue) +  
-    ylab('percentage of novel exons') + 
-    theme_minimal()
-    #ggtitle('location of novel exons in occular tissues')
+# locs <- ggplot(location_df) + 
+#     geom_bar(aes(x=age, fill=location, y=count), position = 'fill', stat = 'identity' ) +
+#     scale_fill_manual(values = c('yellow', 'purple', 'orange')) +
+#     facet_wrap(~ tissue) +  
+#     ylab('percentage of novel exons') + 
+#     theme_minimal()
+#     #ggtitle('location of novel exons in occular tissues')
 
-(us)/(piu +locs)+ plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE)) 
+(us)/(piu )+ plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE)) 
 
 ```
 
@@ -383,14 +296,58 @@ locs <- ggplot(location_df) +
 Figure 2. Analysis of novel isoform characteristics (A.). Set intersection of novel isoforms in ocular transcriptomes (B. Raincloud plots of novel isoform PIU (percent isoform usage). Boxplots are overlaid over PIU data with estimated distribution of data set above each boxplot (C.). Location of novel exons within the body of associated parent transcript. CDS refers to coding region of transcript, UTR to untranslated region and NC to noncoding transcript
 :::
 
-Next, we analyzed the novel isoforms within our ocular transcriptomes. We compared the overlap in constructed novel isoforms across ocular tissues and found that 95 % of novel isoforms are specific to a singular ocular subtissue (fig 3a). For each novel isoform we then calculated percent isoform usage (PIU), or the fraction of total gene expression a transcript contributed to its parent gene. We found that on average for retina and RPE, novel isoforms contribute to 30 % of their parent gene’s expression. However in each condition we observed mutiple novel transcripts that domintate expression of their parent gene. <what genes are these>
-In order to determine whether the novel exon in the novel isoform caused a change in the protein coding region of the transcript, we next found the longest open reading frame for each novel isoform with a novel exon. Novel isoforms with no detectable open reading frame had associated novel exons marked as noncoding. We found that novel exons lie largely in the untranslated regions of the transcript body. Less than 10% of detected novel isoforms potentially cause a change in its translated protein.
+Next, we analyzed the novel isoforms within our ocular transcriptomes. We compared the overlap in constructed novel isoforms across ocular tissues and found that XXX % of novel isoforms are specific to a singular ocular subtissue (fig 3a), but there are significant transcripts for pan-eye and fetal-like tissues as well. For each novel isoform we then calculated percent isoform usage (PIU), or the fraction of total gene expression a transcript contributed to its parent gene. We found that on average for retina and RPE, novel isoforms contribute to 30 % of their parent gene’s expression. 
+
+De novo transcriptomes allows for easy identification of the primary isoform expressed in a tissue, or any isoform that has piu >XXX(.95)
+
+```{r}
+eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue',
+                 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue')
+adult_tissues <- eye_tissues[grepl('Adult', eye_tissues)]
+fetal_tissues <- eye_tissues[!grepl('Adult', eye_tissues)]
+high_piu <- piu_df %>% 
+  filter(piu >=.95) %>% inner_join( plot_df) %>% 
+  mutate(tot = rowSums(.[,eye_tissues]), 
+         adult = rowSums(.[,adult_tissues]), 
+         fetal = rowSums(.[,fetal_tissues])) %>% 
+  inner_join(gtf %>% filter(type == 'transcript') %>% select(transcript_id, gene_name))
+T_spec_tx <- lapply(eye_tissues,function(x) high_piu %>% filter(.[,x],tot == 1) %>% pull(gene_name))
+names(T_spec_tx) <- eye_tissues
+pan_eye_tx <- filter(high_piu, tot == 6) %>% pull(gene_name)
+fetal_tx <- filter(high_piu, fetal>1, adult == 0 ) %>% pull(gene_name)
+save(pan_eye_tx, fetal_tx, T_spec_tx, file = 'testing/high_piu_tx.Rdata')
+```
+
 
 ## Novel Loci in the ocular transcriptome
 
 We determined the longest ORF for each novel loci, and determined associated protein families to predict the function of novel loci using the tool hmmer
 
+
+
 ```{r}
+load('clean_data/rdata/hmmer_results.Rdata')
+tc2ms<- fread('../ocular_transcriptomes_pipeline/data/gtfs/all_tissues.convtab') %>% as_tibble 
+det_mat <- apply(tc2ms[,-(1:4)],2, function(t) t!='') %>% cbind(tc2ms[,1:4], .)
+eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue',
+                 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue', 'Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')
+body_tissues <- filter(sample_table, !subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
+det_eye_body <- det_mat %>% mutate(det_eye  = rowSums(.[,eye_tissues]), det_body = rowSums(.[,body_tissues])) %>% 
+  select(transcript_id, det_eye, det_body)
+
+gtf_pc_seq_hits <-  filter(gtf, transcript_id %in% seq_hits_eye$query_name, transcript_type == 'protein_coding') 
+
+seq_hits_pc_multiexonic <-  filter(gtf, transcript_id %in% seq_hits_eye$query_name, transcript_type == 'protein_coding', exon_number == 2) %>% pull(transcript_id) %>% 
+  {filter(seq_hits_eye, query_name %in%.)} %>% rename(transcript_id = query_name) %>% inner_join(det_eye_body) %>% 
+  filter(det_body == 0)
+gtf_seqhits_rpe_only <- seq_hits_pc_multiexonic %>% filter(RPE_Fetal.Tissue) %>% {filter(gtf, transcript_id %in% .$transcript_id)} %>% 
+  filter(type == 'transcript')
+RPE_novel_seq_hits_bed <-  gtf_seqhits_rpe_only %>% mutate(score = 333) %>% select(seqid, start, end, transcript_id, score, strand) 
+
+write_tsv(RPE_novel_seq_hits_bed, '../ocular_transcriptomes_pipeline/testing/RPE_specific_novel_loci.bed')
+
+
+k <- rtracklayer::readGFF('../pacbio_testing/data/talon_results/RPE_Fetal.Tissue/RPE_Fetal.Tissue_talon_observedOnly.gtf')
 
 ```
 
@@ -399,7 +356,7 @@ We report proteins that had a hmmer evalue less than .01. We find that many of t
 
 ## De novo transcriptome allow for a more precise variant prioritaizaion. 
 
-The prediction of SNP's consequence is a fundamental step in variant prioritzation, especially in the diagnosis of genetic diseases. We use our tissue transcriptomes tto generate a tissue specific variant prioirty, and used this to predict the effect of variants of unknown significance(VUS) within the clinvar database. A full table mapping variant types to impact can be found in supplementary data.
+The prediction of SNP's consequence is a fundamental step in variant prioritzation, especially in the diagnosis of genetic diseases. We use our tissue transcriptomes to generate a tissue specific variant prioirty, and used this to predict the effect of variants of unknown significance(VUS) within the clinvar database. A full table mapping variant types to impact can be found in supplementary data.
 
 
 ```{r}
@@ -422,6 +379,7 @@ ggarrange(p0, gene_body,  ncol =1, labels = c('A', 'B'))
 
 
 
+
 ::: {custom-style="CustomCaption"}
 Figure 3. Screenshots from dynamic *de novo* transcriptome visualization tool. A).  PIU bar plot for selected gene and tissue. B). Exon level diagram of transcript body Thicklines represent coding region of transcript. novel exons colored in red. Tooltip contains genomic location and phylop score C) Bargraph of fraction of samples within dataset each transcript was consructed in by tissue.
 :::
@@ -438,6 +396,181 @@ Figure 3. Screenshots from dynamic *de novo* transcriptome visualization tool. A
       
       We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
       In the future, we aim to provide a more refined ocular transcriptome by using long read RNA-seq data from ocular tissues. Long read RNA-seq captures entire RNA transcripts and thus removes ambiguity due to short read noise or algorithmic construction and will provide a more accurate characterization of the pan eye transcriptome.
+
+
+# junk
+
+```{r}
+# 
+# novel_transcripts_per_tissue <- novel_transcripts_per_tissue %>% filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+# color_list<- novel_transcripts_per_tissue$color
+# names(color_list) <- novel_transcripts_per_tissue$body_location
+# 
+# novel_transcripts_per_tissue <- novel_transcripts_per_tissue %>% 
+#    gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
+#   filter(transcript_type!='color',!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%    
+#   mutate(counts=as.numeric(counts), body_location_pretty=gsub('_|\\.', ' ', body_location), 
+#          transcript_type = ifelse(transcript_type == 'novel_pc_count', 'pc_tx', 'nc_tx'))
+# 
+# 
+# isoforms <- ggplot(data = novel_transcripts_per_tissue) +
+#   geom_col(aes(x=body_location_pretty, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+#     scale_fill_manual(values = color_list) +
+#     scale_alpha_discrete(range=c(.5,1)) +
+#     ggtitle('Novel Isoforms Contructed Across the Body')+
+#     ylab('number of novel transcripts')+
+#     xlab('Body Location')+
+#     theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+# 
+# novel_orfs_per_tissue <- novel_orfs_per_tissue %>% 
+#   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
+#     filter(transcript_type!='color',!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%    
+#     mutate(counts=as.numeric(counts), body_location_pretty=gsub('_|\\.', ' ', body_location))
+# orf <- ggplot(data = novel_orfs_per_tissue) +
+#   geom_col(aes(x=body_location_pretty, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+#     scale_fill_manual(values = color_list) +
+#     scale_alpha_discrete(range=c(.5,1)) +
+#     ggtitle('Novel Isoforms Contructed Across the Body')+
+#     ylab('number of novel transcripts')+
+#     xlab('Body Location')+
+#     theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+# 
+# novel_loci_per_tissue <- novel_loci_per_tissue %>% 
+#   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
+#   filter(transcript_type!='color',!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%    
+#   mutate(counts=as.numeric(counts), body_location_pretty=gsub('_|\\.', ' ', body_location))
+# 
+# 
+# loci <- ggplot(data = novel_loci_per_tissue) +
+#     geom_col(aes(x=body_location_pretty, y=counts, fill=body_location, alpha=transcript_type), position = 'dodge') +
+#     scale_fill_manual(values = color_list) +
+#     scale_alpha_discrete(range=c(.5,1)) +
+#     ggtitle('Novel Loci constructed in Occular Tissues', ) +
+#     ylab('number of novel loci detected') +
+#     xlab('Body Location\n\n\n') +
+#     theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+# 
+# # p0 <- ggarrange(isoforms, loci, ncol = 2, labels = c('A', 'B'), font.label = list(size=25))
+# # p1 <- annotate_figure(novel_exons, fig.lab = 'C', fig.lab.pos = 'top.left', fig.lab.size = 25)
+# # ggarrange(p0, p1, nrow=2)
+# layout <- '
+# AC
+# BC'
+# isoforms /orf/loci  +plot_annotation(tag_levels = 'A')
+
+```
+
+```{r transcriptome_pipeline_stats, fig.height=13, fig.width=16}
+#  novel_loci bar graph, novel isoform bargraphs initial tx count, final tx count
+# make_stack_bar_subset <- function(df, which_subset){
+#   #df: a df with follwowing columns: group, label, count
+#   #which_subset a named list mapping group to specific label subset 
+#   group_list <- split(df, df$group)
+#   group_list <- group_list[unique(df$group)]
+#   #stopifnot(length(group_list) - 1 == length(which_subset))
+#   make_df_bar <- function(df, i){
+#     df <- df %>% 
+#       mutate(weight = cumsum(df$count) / sum(df$count),
+#               X = (i-.25),
+#              Xend  = (i+.25),
+#             Y <- c(0,df$weight[1:nrow(df)-1]),
+#             end <- df$weight )
+#     return(df)
+#   }
+#   make_df_line <- function(df_bar, c_label, c_group){
+#     c_label_df <- filter(df_bar,group == c_group, label ==  c_label)
+#     tibble(X = max(c_label_df$Xend),
+#            Xend = X + .5, 
+#            Y = c(c_label_df$Y[1], c_label_df$Yend[1]),
+#            Yend = c(0,1)
+#     )
+#            
+#   }
+#   
+#   df_bar <- lapply(seq_along(group_list), function(i) make_df_bar(group_list[[i]], i) ) %>% bind_rows()
+#   df_line <- lapply(seq_along(which_subset), 
+#                     function(i) make_df_line(df_bar, which_subset[i], names(which_subset) [i])) %>% bind_rows
+#  plot <- ggplot(data = df_bar) + 
+#     geom_rect(aes(xmin = X, ymin= Y, xmax = Xend, ymax=Yend,  fill = label, color = label)) + 
+#     geom_segment(data = df_line, aes(x=X,y=Y, xend = Xend, yend= Yend), color = 'black')+
+#     scale_x_discrete(limits = unique(df_bar$group) )+
+#     xlab(element_blank()) +
+#     ylab(element_blank()) +
+#     theme(panel.background = element_rect(fill = 'white'), legend.title = element_blank() )
+#   
+#   return(plot) 
+# }
+```
+
+```{r, fig.width=8, fig.height=12}
+# 
+# 
+# all_sample_mapping_rates <- all_sample_mapping_rates %>%
+#   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
+#   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),                                                              body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
+#                                  body_location == 'Brain'~ 'Brain(avg)' ,
+#                                   TRUE ~ body_location))
+# 
+# #median_sample_mapping_rates %>% inner_join(subtissue_to_bodyloc) %>% group_by(body_location) %>% 
+# #  summarise(mean_med_diff = mean(med_diff))
+# 
+# 
+# # ggplot(data = all_sample_mapping_rates)  +
+# #   geom_boxplot(aes(x=build, y=mapping_rate, color=body_location)) +
+# #   scale_color_manual(values = color_list) +
+# #   facet_wrap(~body_location, nrow = 3, ) +
+# #   ylab('Salmon Mapping Rate') +
+# #   xlab('Transcriptome build') +
+# #   theme_minimal()
+# 
+# 
+# p <- ggboxplot(all_sample_mapping_rates, x='build', y='mapping_rate', color = 'body_location') +
+#   stat_compare_means(ref.group = 'gencode', method = 'wilcox.test', method.args = list(alternative = "less"))
+# facet(p, facet.by = 'body_location')
+# 
+# # k <- '
+# # 
+# # ::: {custom-style="CustomCaption"}
+# # Figure 3 Salmon pseudo-mapping rates using both tissue -specific *de novo* transcriptome and gencode transcriptomes as the underlying reference for salmon. 
+# # :::
+# # 
+# # 
+# # 
+# # '
+
+```
+
+```{r}
+# map_rate_diffs <- all_sample_mapping_rate_difference %>% 
+#   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
+#   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),                                                              
+#          body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
+#                                  body_location == 'Brain'~ 'Brain(avg)' ,
+#                                   TRUE ~ body_location), 
+#          mapping_rate_diff = mapping_rate_diff * -1 , 
+#          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0), 
+#          pt = 'mapping_rate')
+# NUM_GENCODE_TX = 203835
+# size_reduction_df <- tx_counts %>% mutate(percent_txome_size_decrease = (NUM_GENCODE_TX -filtered) / NUM_GENCODE_TX) %>% 
+#   inner_join(subtissue_to_bodyloc) %>% 
+#   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
+#   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),                                                              
+#          body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
+#                                  body_location == 'Brain'~ 'Brain(avg)' ,
+#                                   TRUE ~ body_location)) %>% 
+#   group_by(body_location) %>%
+#   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>% 
+#   mutate(pt = 'txome rate')
+# ggplot(map_rate_diffs) +
+#   geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location))+
+#   geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location)) +
+#   scale_fill_manual(values = color_list) +
+#   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
+#   facet_wrap(~body_location)
+
+
+# |        As an initial benchmark of the accuracy and utility of our transcriptome builds, we quantified transcript expression of our samples using the alignment-free quantification tool Salmon. Each sample was quantified twice: once using the gencode V27 human transcript annotation, and once using its associated tissue specific transcriptome. We found that globally, Salmon mapping rates showed no statistically significant decrease in mapping rate when using the *de novo* transcriptomes except for Fetal Retina. This is  despite an average of 3 -fold reduction in annotation size.
+```
 
 
 # References

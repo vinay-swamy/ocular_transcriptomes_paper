@@ -36,7 +36,7 @@ tissue_color_mapping_df <- tibble(body_location=c('Cornea_Adult.Tissue', 'Cornea
                  color=c(brewer.pal(8,'Greens')[c(6,8)], brewer.pal(8,'Blues')[c(6,8)], brewer.pal(8,'Reds')[c(6,8)],
                          'pink','purple',  'orange', 'yellow')
 )
-save(tissue_color_mapping_df, file = files$color_mapping_rdata)
+
 tcons2mstrg <- gtf %>% 
     filter(type == "transcript") %>% 
     select(transcript_id, transcript_type) %>% 
@@ -102,7 +102,7 @@ novel_loci_per_tissue <- lapply(subtissues, function(i) tc2m_novel_loci %>%
            body_location=replace(body_location, body_location == 'Brain', 'Brain(avg)')
     ) 
 #---- 
-all_novel_tx <- filter(gtf, class_code != '=') %>% pull(transcript_id) %>% unique
+all_novel_tx <- filter(gtf, !class_code %in% c('=', 'u') ) %>% pull(transcript_id) %>% unique
 exons_per_nvtx <- gtf %>% filter(type == 'exon', transcript_id %in% all_novel_tx ) %>%
     group_by(transcript_id) %>% summarise(n_exons = n())
 novel_transcripts_no_novel_exon <- gtf %>% filter(type == 'exon', transcript_id %in% all_novel_tx) %>%
@@ -188,23 +188,28 @@ exon_locations <- novel_seq_bed %>%
 
 #----
 
-all_exon_annotation <- gtf %>% 
+novel_exon_annotation <- gtf %>% 
     filter(type =='exon') %>%
     select(seqid, strand, start,end, transcript_id) %>% 
     distinct %>% 
     inner_join(tcons2mstrg %>% select(transcript_id,has_novel_orf, transcript_type)) %>% 
-    inner_join(cds_track_tab) %>% 
+    left_join(cds_track_tab) %>% 
     inner_join(novel_exons_TSES) %>% 
-    inner_join(exon_locations %>% select(seqid, strand, start, end, transcript_id, exon_location)) %>% 
+    left_join(exon_locations %>% select(seqid, strand, start, end, transcript_id, exon_location)) %>% 
     select(transcript_id, nv_exon_id = id, cds_id, has_novel_orf,transcript_type, exon_location, nv_type_rc ) %>% 
-    distinct 
-exon_type_by_transcript_type <-all_exon_annotation %>% 
+    distinct()
+novel_exon_annotation <-tcons2mstrg %>% filter(!class_code %in% c('=', 'u'), transcript_id%in% novel_transcripts_no_novel_exon) %>% 
+    select(transcript_id, has_novel_orf, transcript_type) %>% 
+    mutate(nv_type_rc = 'Exon Omission') %>% bind_rows(novel_exon_annotation,.)
+    
+exon_type_by_transcript_type <-novel_exon_annotation %>% 
     select(transcript_id, transcript_type, has_novel_orf, nv_type_rc) %>% distinct %>% 
     mutate(comp_transcript_type = case_when(transcript_type == 'protein_coding' & has_novel_orf ~ 'Novel Isoform Novel Protein', 
                                             transcript_type == 'protein_coding' & !has_novel_orf ~ 'Novel Isoform Known ORF',
                                             transcript_type != 'protein_coding' ~ 'Noncoding')
            ) %>% 
     select(comp_transcript_type, nv_type_rc)
+    
 
 
 
@@ -238,7 +243,7 @@ exon_type_by_transcript_type <-all_exon_annotation %>%
 #             UTR_change=filter(novel_exons_ano, is.PC, !is.CDS) %>% pull(id) %>% unique)
 
 
-
+save(tissue_color_mapping_df, file = files$color_mapping_rdata)
 save(novel_transcripts_per_tissue, 
      novel_orfs_per_tissue,
      novel_loci_per_tissue, 

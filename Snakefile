@@ -58,10 +58,11 @@ rule calc_txome_tx_counts_and_mapping_Rates:
         DNTX_mr= files['DNTX_mr'],
         gencode_mr= files['gencode_mr'],
         gtf_tx_counts= files['gtf_tx_counts'],
-        txcounts_mr_rdata= files['txcounts_mr_rdata']
+        txcounts_mr_rdata= files['txome_stats_rdata']
     shell:
         '''
         bash scripts/count_stats_from_files.sh \
+            {sample_file} \
             {data_dir} \
             {output.DNTX_mr} \
             {output.gencode_mr} \
@@ -152,8 +153,8 @@ rule novel_isoforms_ocular_tissues:
         '''
 
 rule process_VEP:
-    input: 
-        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+    # input: 
+    #     expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
     output: 
         all_variant_results = working_dir + 'clean_data/rdata/vep_all_alleles.Rdata',
         example_variant_results = working_dir +'clean_data/rdata/vep_eye_example.Rdata'
@@ -203,7 +204,8 @@ rule knit_notebooks:
         working_dir + 'clean_data/rdata/novel_isoforms.Rdata', 
         working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata', 
         working_dir + 'clean_data/rdata/longread_summary.Rdata',
-        working_dir +'clean_data/rdata/vep_eye_example.Rdata' 
+        working_dir +'clean_data/rdata/vep_eye_example.Rdata', 
+        working_dir + 'clean_data/rdata/hmmer_results.Rdata'
     #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
     #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
     output: 

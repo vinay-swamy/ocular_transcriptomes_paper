@@ -6,9 +6,9 @@ tcons2mstrg: /data/swamyvs/ocular_transcriptomes_pipeline/data/gtfs/all_tissues.
 DNTX_mr: /data/swamyvs/ocular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab
 gencode_mr: /data/swamyvs/ocular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab
 gtf_tx_counts: /data/swamyvs/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab
-txcounts_mr_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/transcriptome_pipeline_stats.Rdata
+txome_stats_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/transcriptome_pipeline_stats.Rdata
 sample_table: /data/swamyvs/ocular_transcriptomes_pipeline/sampleTableFullV3.tsv
-all_tissue_quant: dumm_quant
+all_tissue_quant: /data/swamyvs/ocular_transcriptomes_pipeline/data/rdata/all_tissue_quant.Rdata
 color_mapping_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/tissue_to_colors.Rdata
 hmmer_dir: /data/swamyvs/ocular_transcriptomes_pipeline/data/novel_loci/hmmer/
 hmmer_results: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/hmmer_results.Rdata

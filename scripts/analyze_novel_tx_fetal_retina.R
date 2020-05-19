@@ -3,17 +3,17 @@ library(limma)
 library(edgeR)
 library(ComplexHeatmap)
 library(viridis)
-args <- c('/Volumes/data/occular_transcriptomes_paper/',
-          '/Volumes/data/eyeintegration_splicing/sampleTableFull.tsv', 
-          '/Volumes/data/eyeintegration_splicing/data/all_tissue_quant.Rdata',
-          '/Volumes/data/eyeintegration_splicing/data/misc/TCONS2MSTRG.tsv',
-          '/Volumes/data/eyeintegration_splicing/data/gtfs/all_tissues.combined.gtf',
-          '/Volumes/data/eyeintegration_splicing/data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3',
-          '/Volumes/data/eyeintegration_splicing/ref/core_tight.Rdata',
-          '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp_results.Rdata',
-          '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp.txt',
-          '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp_hm.Rdata'
-          )
+# args <- c('/Volumes/data/occular_transcriptomes_paper/',
+#           '/Volumes/data/eyeintegration_splicing/sampleTableFull.tsv', 
+#           '/Volumes/data/eyeintegration_splicing/data/all_tissue_quant.Rdata',
+#           '/Volumes/data/eyeintegration_splicing/data/misc/TCONS2MSTRG.tsv',
+#           '/Volumes/data/eyeintegration_splicing/data/gtfs/all_tissues.combined.gtf',
+#           '/Volumes/data/eyeintegration_splicing/data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3',
+#           '/Volumes/data/eyeintegration_splicing/ref/core_tight.Rdata',
+#           '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp_results.Rdata',
+#           '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp.txt',
+#           '~/NIH/occular_transcriptomes_paper/clean_data/fetal_novel_tx_diffexp_hm.Rdata'
+#           )
 
 args <- commandArgs(trailingOnly = T)
 wd <- args[1]

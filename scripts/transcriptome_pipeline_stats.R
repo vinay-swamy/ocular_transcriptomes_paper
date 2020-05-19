@@ -20,15 +20,11 @@ parser <- ArgumentParser()
 parser$add_argument('--workingDir', action='store', dest='working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
-# parser$add_argument('--sampleTableFile', action = 'store', dest = 'sample_table_file')
-# parser$add_argument('--anoGtfFile', action = 'store', dest='ano_gtf_file')
-# parser$add_argument('--tcons2mstrgFile', action = 'store', dest = 'tcons2mstrg_file')
-
-# parser$add_argument('--gencodeMapRateFile', action = 'store', dest = 'gencode_mapping_rate_file')
-# parser$add_argument('--DNTXMapRateFile',action = 'store', dest = 'DNTX_mapping_rate_file')
-# parser$add_argument('--gtfTxCountFile', action = 'store', dest = 'gtf_trasncript_count_file')
-# parser$add_argument('--cleanData', action = 'store', dest = 'clean_data')
-
+#######
+working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
+files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+#######
 list2env(parser$parse_args(), .GlobalEnv)
 files <- read_yaml(files_yaml)
 
@@ -51,7 +47,7 @@ process_lib_size_tabs <- function(file, type){
     colnames(df) <- c('sample', paste0(type, c('_total_reads', '_percent_mapped')))
     return(df)
 }
-sample_table <- read_tsv(files$sample_table_file) %>% filter(subtissue != 'synth')
+sample_table <- read_tsv(files$sample_table) %>% filter(subtissue != 'synth')
 t2m <- read_tsv(files$tcons2mstrg)
 
 #COUNT GTF TX COUNTS
@@ -68,8 +64,8 @@ tx_counts <- read_delim(files$gtf_tx_counts, ' ' , col_names=c('raw', 'tx_count'
                         str_split('/') %>% 
                         sapply(function(x) x[grep('\\.gtf', x) ] %>% str_remove('\\.gtf|_st\\.gtf')),
            raw=NULL)%>% 
-        spread(build, tx_count)# %>%
-    select(subtissue, raw, gfc_filt, compfilt, final)
+        spread(build, tx_count) #%>%
+    #select(subtissue, raw, gfc_filt, compfilt, final)
 #----
 
 
@@ -80,13 +76,9 @@ nsamp_by_tissue <- sample_table %>% group_by(subtissue) %>% summarise(nsamp=n())
 
 DNTX_mapping_rates <- process_lib_size_tabs(files$DNTX_mr , 'DNTX')
 gencode_mapping_rates <- process_lib_size_tabs(files$gencode_mr, 'gencode')
-median_sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
-    inner_join(select(sample_table, sample, subtissue)) %>% 
-    mutate(map_diff=DNTX_percent_mapped - gencode_percent_mapped) %>% 
-    group_by(subtissue) %>% 
-    summarise(med_diff=median(map_diff), med_libsize=median(gencode_total_reads) ) %>% arrange(desc(med_diff)) %>% 
-    mutate(med_num_reads_gained = med_diff * med_libsize) %>% 
-    left_join(tx_counts) %>% left_join(nsamp_by_tissue)
+all_sample_mapping_rate_difference <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
+    mutate(mapping_rate_diff = DNTX_percent_mapped - gencode_percent_mapped) %>% 
+    inner_join(select(sample_table, sample, body_location))
 
 all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rates, gencode_mapping_rates) %>% 
     inner_join(select(sample_table, sample, body_location)) %>% 
@@ -95,7 +87,7 @@ all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rate
     mutate(build=ifelse(build == 'DNTX_percent_mapped', 'DNTX', 'gencode'))
 
 
-save(median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = clean_data)
+save(median_sample_mapping_rates,all_sample_mapping_rates , tx_counts,  file = files$txome_stats_rdata)
 
 
 
