@@ -34,10 +34,10 @@ library(grid)
 library(png)
 sample_table <- read_tsv('/data/swamyvs/ocular_transcriptomes_pipeline/sampleTableFullV3.tsv') %>% filter(subtissue != 'synth')
 load('clean_data/rdata/tissue_to_colors.Rdata')
-load('/data/swamyvs/ocular_transcriptomes_pipeline/ref/rdata/core_tight.Rdata')
+load('clean_data/core_tight.Rdata')
 tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
 load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
-load('/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/transcriptome_pipeline_stats.Rdata')
+load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
 core_tight <- core_tight %>% as_tibble %>% select(sample=sample_accession, study=study_accession) %>% distinct
 load('clean_data/rdata/paper_numbers_and_sup_figs.Rdata')
