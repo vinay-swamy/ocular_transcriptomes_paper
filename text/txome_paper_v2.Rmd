@@ -13,7 +13,7 @@ output:
     df_print: kable
 ---
 
-```{r setup, echo=FALSE}
+```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
 #knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
 
 knitr::opts_knit$set(root.dir = '/data/swamyvs/ocular_transcriptomes_paper')
@@ -40,7 +40,7 @@ load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 load('/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
 core_tight <- core_tight %>% as_tibble %>% select(sample=sample_accession, study=study_accession) %>% distinct
-#load('clean_data/rdata/paper_numbers.Rdata')
+load('clean_data/rdata/paper_numbers_and_sup_figs.Rdata')
 load('clean_data/rdata/sup_figs.Rdata')
 load('clean_data/rdata/longread_summary.Rdata')
 load('clean_data/rdata/buildResultsSummary.Rdata')
@@ -49,7 +49,9 @@ names(color_list) <- novel_transcripts_per_tissue$body_location
 eye_tissues <-  c("RPE_Fetal.Tissue",  "Retina_Adult.Tissue",  "RPE_Adult.Tissue", "Cornea_Adult.Tissue", "Cornea_Fetal.Tissue", "Retina_Fetal.Tissue")
 subtissues <- unique(sample_table$subtissue)
 body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
-
+NUM_STUDIES = 32
+NUM_REF_TX_BODY = 287945
+NUM_TOTAL_TX_BODY = NUM_NOVEL_TX_BODY + NUM_REF_TX_BODY
 ```
 
 # Introduction
@@ -302,7 +304,7 @@ Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decre
 |     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans. based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a simpler but higher resolution tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is more accurate ontology than APPRIS principal isoform.
 
 
-```{r}
+```{r, fig.width= 8}
 load('clean_data/rdata/novel_isoforms.Rdata')
 primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>% 
   mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('dntx', 'gencode', 'appris'))) %>% 
@@ -401,7 +403,6 @@ model <- ggplot(gene_model_df)+
   xlab('genome') +
   ylab(element_blank())+
   theme(panel.background = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
-model
 layout <- '
 AA
 AA
@@ -419,7 +420,7 @@ cov/model/mss + plot_layout(design = layout) +plot_annotation(tag_levels = 'A')
 ```
 
 ::: {custom-style="CustomCaption"}
-Figure 6. DNTX000dddd, potentially protein coding novel isoform in Fetal RPE A RNA-seq coverage across 49 samples. B transcript model of DNTX000ddd. thick regions represtn coding region. C. Multiple sequence alignment of DNTX000ddd and closely related proteins.
+Figure 6. DNTX000dddd, potentially protein coding novel isoform in Fetal RPE. A) RNA-seq coverage of exons across 49 samples. B transcript model of DNTX000ddd. thick regions represtn coding region. C. Multiple sequence alignment of DNTX000ddd and closely related proteins.
 :::
 
 This potentially protein coding novel loci encodes a protein homologous to the human COL12A1 gene, and is sconserved across multiple species.
@@ -429,7 +430,7 @@ This potentially protein coding novel loci encodes a protein homologous to the h
 The prediction of SNP's consequence is a fundamental step in variant prioritzation, especially in the diagnosis of genetic diseases. We use our tissue transcriptomes to generate a tissue specific variant prioirty, and used this to predict the effect of variants of unknown significance(VUS) within the clinvar database. A full table mapping variant types to impact can be found in supplementary data.
 
 
-```{r}
+```{r fig.width=16, fig.height=12}
 load('/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_results.Rdata')
 
 n=15
@@ -496,36 +497,37 @@ Finally, we package all tools used for out transcriptome pipeline within a porta
 # Discussion
 
 |       Motivated by the lack of a comprehensive pan eye transcriptome and so we created the first comprehensive set of ocular transcriptomes.
-<Long read data serves as gold standard for isoform discover, but remains expaneisve because of its cost; by informing short read contruction with long read construction, we can get a better sense of short read txome accuracy.>
+By calibrating our short read constrution pipeline with long read data, our transcriptomes are more accurate than previous work. 
 We used a large dataset compiled from published RNA-seq data to build these transcriptomes, an approach which has several key advantages. First, our large sample size allows us to combat the noisy nature of RNA-seq data. More importantly, because we only keep transcripts detected in samples from multiple studies with multiple types of sample preparation, we can be more confident that our transcriptomes accurately reflect the biology of its originating subtissue and are not an artifact due to preparation of the samples.
       We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
       We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data, likely indicating that our constructed transcripts are not an artifact of the construction algorithm. These smaller transcriptomes create a significantly lower dimesional space for researchers to explore.
       In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that   it is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction. We find that within the ocular transcriptome, novel isoforms do not lead to a change in the encoded protein product and lie within the untranslated region of the gene. It is difficult to identify the exact role of these novel exons, but others have shown that the untranslated regions of transcripts contain multiple types of regulatory elements.
-      
-      We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
+       We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
       In the future, we aim to provide a more refined ocular transcriptome by using long read RNA-seq data from ocular tissues. Long read RNA-seq captures entire RNA transcripts and thus removes ambiguity due to short read noise or algorithmic construction and will provide a more accurate characterization of the pan eye transcriptome.
 
 
-# Notes
+# Notes/misc
 
 "Because we observed that many of these transcripts were detected in one or two samples (sup fig 2) we refined our set of transcriptomes using series of filtering steps (methods) to remove low confidence transcripts."  - This is still somthing worth checking
 
 ```{r}
-eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue',
-                 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue')
-adult_tissues <- eye_tissues[grepl('Adult', eye_tissues)]
-fetal_tissues <- eye_tissues[!grepl('Adult', eye_tissues)]
-high_piu <- piu_df %>% 
-  filter(piu >=.95) %>% inner_join( plot_df) %>% 
-  mutate(tot = rowSums(.[,eye_tissues]), 
-         adult = rowSums(.[,adult_tissues]), 
-         fetal = rowSums(.[,fetal_tissues])) %>% 
-  inner_join(gtf %>% filter(type == 'transcript') %>% select(transcript_id, gene_name))
-T_spec_tx <- lapply(eye_tissues,function(x) high_piu %>% filter(.[,x],tot == 1) %>% pull(gene_name))
-names(T_spec_tx) <- eye_tissues
-pan_eye_tx <- filter(high_piu, tot == 6) %>% pull(gene_name)
-fetal_tx <- filter(high_piu, fetal>1, adult == 0 ) %>% pull(gene_name)
-save(pan_eye_tx, fetal_tx, T_spec_tx, file = 'testing/high_piu_tx.Rdata')
+# eye_tissues <- c('Retina_Fetal.Tissue', 'Retina_Adult.Tissue', 'RPE_Fetal.Tissue', 'RPE_Adult.Tissue',
+#                  'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue')
+# adult_tissues <- eye_tissues[grepl('Adult', eye_tissues)]
+# fetal_tissues <- eye_tissues[!grepl('Adult', eye_tissues)]
+# high_piu <- piu_df %>% 
+#   filter(piu >=.95) %>% inner_join( plot_df) %>% 
+#   mutate(tot = rowSums(.[,eye_tissues]), 
+#          adult = rowSums(.[,adult_tissues]), 
+#          fetal = rowSums(.[,fetal_tissues])) %>% 
+#   inner_join(gtf %>% filter(type == 'transcript') %>% select(transcript_id, gene_name))
+# T_spec_tx <- lapply(eye_tissues,function(x) high_piu %>% filter(.[,x],tot == 1) %>% pull(gene_name))
+# names(T_spec_tx) <- eye_tissues
+# pan_eye_tx <- filter(high_piu, tot == 6) %>% pull(gene_name)
+# fetal_tx <- filter(high_piu, fetal>1, adult == 0 ) %>% pull(gene_name)
+# save(pan_eye_tx, fetal_tx, T_spec_tx, file = 'testing/high_piu_tx.Rdata'2)
 ```
+
+
 
 # References
