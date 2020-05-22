@@ -111,16 +111,16 @@ In order to determine the accuracy of short read transcriptome construction, we 
 
 ```{r fig.height=5, fig.width=8}
 sum_counts <- length_df_plotting %>% 
-    filter(intersection_case %in% c('stringtie','pacbio','stringtie-pacbio')) %>% 
-    mutate(intersection_case = gsub('stringtie', 'StringTie', intersection_case),
-           intersection_case = gsub('pacbio', 'PacBio', intersection_case),
-           intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% group_by(intersection_case) %>% count()
+  filter(intersection_case %in% c('stringtie','pacbio','stringtie-pacbio')) %>% 
+  mutate(intersection_case = gsub('stringtie', 'StringTie', intersection_case),
+         intersection_case = gsub('pacbio', 'PacBio', intersection_case),
+         intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% group_by(intersection_case) %>% count()
 violin_plot <- length_df_plotting %>% 
   filter(intersection_case %in% c('stringtie','pacbio','stringtie-pacbio')) %>% 
   mutate(intersection_case = gsub('stringtie', 'StringTie', intersection_case),
          intersection_case = gsub('pacbio', 'PacBio', intersection_case),
-           intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% 
-    ggplot() +
+         intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% 
+  ggplot() +
   scale_y_continuous(breaks = c(2000,4000,6000, 8000, 10000)) +
   geom_text(data = sum_counts, aes(x=intersection_case, y = 11000, label=n), stat= 'identity') +
   geom_violin(aes(x=intersection_case,y=length)) + geom_hline(yintercept = 2000, color='red') + cowplot::theme_cowplot() + ylab('Transcript\nLength (bp)') + xlab('') + coord_flip(ylim = c(0,11500))
@@ -154,13 +154,15 @@ Figure 1. Comparison of long read and short read fetal RPE transcriptomes. A) In
 ```{r}
 df <- sample_table %>% 
   left_join(core_tight) %>% 
-  filter(!body_location %in% c('Body', 'Brain', 'ESC_Stem.Cell.Line', 'Lens_Stem.Cell.Line')) %>% 
+  filter(!body_location %in% c('Body', 'Brain', 'ESC_Stem.Cell.Line', 'Lens_Stem.Cell.Line')) %>%
   group_by(subtissue) %>%
-  summarise(`number of samples` = n(), `number of studies` = length(unique(study))) %>% 
-  arrange(desc(`number of studies`)) %>% 
-  inner_join(tx_counts %>% select(subtissue, `transcriptome size`=filtered)) %>% 
-  mutate(subtissue=gsub('_|\\.',' ', subtissue)) 
-kable(df)
+  summarise(`Samples` = n(), `Studies` = length(unique(study))) %>% 
+  arrange(desc(`Studies`)) %>% 
+  inner_join(tx_counts %>% select(subtissue, `Transcriptome Count`=filtered)) %>% 
+  mutate(subtissue=gsub('_|\\.',' ', subtissue)) %>% 
+  mutate(subtissue = gsub(' Tissue', '', subtissue)) %>% 
+  separate(subtissue, into  = c('Tissue' , 'Source'), sep = ' ')
+  kable(df)
 ```
 
 
