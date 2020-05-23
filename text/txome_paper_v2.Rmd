@@ -162,7 +162,7 @@ df <- sample_table %>%
   mutate(subtissue=gsub('_|\\.',' ', subtissue)) %>% 
   mutate(subtissue = gsub(' Tissue', '', subtissue)) %>% 
   separate(subtissue, into  = c('Tissue' , 'Source'), sep = ' ')
-  kable(df)
+kable(df)
 ```
 
 
@@ -174,36 +174,59 @@ Table 1. Ocular sample dataset overview  and transcriptome size. Transcriptome s
 |               After initial construction of transcripts, we found over two million distinct transcripts across all our samples. After using the filtering methods desribed above, Our final transcriptome across all tissues contains `r toString(NUM_TOTAL_TX_BODY)` distinct transcripts with `r toString(NUM_REF_TX_BODY)` previously annotated and `r toString(NUM_NOVEL_TX_BODY)` novel transcripts, and incudes `r toString(NUM_TOTAL_NOVEL_SEQ/1000000)` megabases of previously unannotated genomic sequence. We define novel as any region of genomic sequence that ihas not been previously annotated within the Gencode, Ensembl and Refseq annotation databases. [-@frankish_gencode_2019],[-@zerbino_ensembl_2018],[-@oleary_reference_2016] 
 Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence. Novel isoforms are further classified by the novelty of its encoded protien, ie novel ORF, a novel isoform with a known ORF, and isofroms with no orf as noncoding isoforms. Across all tissues there is an average of XXX novel exons per tissue. Cornea fetal tissue as the highest, where as XXX tissue has the lowest.
 
-```{r  fig.height=13, fig.width=16}
+```{r}
 
 novel_isoforms_per_tissue <- inner_join(novel_transcripts_per_tissue, novel_orfs_per_tissue) %>% 
   select(-novel_pc_count) %>% 
   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
-  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  mutate(transcript_type = gsub('_',' ', transcript_type),
+         transcript_type = gsub(' count', '', transcript_type),
+         transcript_type = gsub('nc','NC', transcript_type),
+         transcript_type = gsub('orf','ORF', transcript_type),
+         transcript_type = gsub('novel','Novel', transcript_type),
+         transcript_type = gsub('ref','Ref.', transcript_type))
 novel_loci_per_tissue <- novel_loci_per_tissue %>% 
   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
-  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+  mutate(transcript_type = gsub('_\\w+','', transcript_type),
+         transcript_type = gsub('noncoding' ,'Noncoding', transcript_type),
+         transcript_type = gsub('pc','Protein\nCoding', transcript_type)) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty))
+color_list<- novel_isoforms_per_tissue$color
+names(color_list) <- novel_isoforms_per_tissue$body_location_pretty
+```
 
+```{r  fig.height=7, fig.width=8}
 loci <- ggplot(data = novel_loci_per_tissue) +
-  geom_col(aes(x=body_location, y=counts, fill = body_location, alpha = transcript_type), position = 'dodge') +
-  scale_fill_manual(values = color_list) +
-  scale_alpha_discrete(range=c(.5,1)) +
-  ggtitle('Novel Isoforms Contructed Across the Body')+
-  ylab('number of novel transcripts')+
+  geom_col(aes(x=body_location_pretty, y=counts, fill = body_location_pretty, alpha = transcript_type), position = 'dodge') +
+  scale_fill_manual(values = color_list, 'Body\nLocation') +
+  scale_alpha_discrete(range=c(.5,1), name = 'Transcript\nType') +
+  #ggtitle('Novel Isoforms Contructed Across the Body')+
+  ylab('Novel\nTranscript\nCount')+
   xlab('Body Location')+
-  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+  cowplot::theme_cowplot() + 
+  theme(axis.text.x=element_blank(), panel.background = element_blank())
 
 isotype_per_tissue <- ggplot(data = novel_isoforms_per_tissue) +
-  geom_col(aes(x=transcript_type, y=counts, fill = body_location), position = 'dodge') +
+  geom_col(aes(x=transcript_type, y=counts, fill = body_location_pretty), position = 'dodge') +
   scale_fill_manual(values = color_list) +
   scale_alpha_discrete(range=c(.5,1)) +
-  ggtitle('Novel Isoforms Contructed Across the Body')+
-  ylab('number of novel transcripts')+
-  xlab('Body Location')+
+  #ggtitle('Novel Isoforms Contructed Across the Body')+
+  ylab('Noncoding Transcript Count')+
+  xlab('')+
+  cowplot::theme_cowplot() + theme(legend.position = "none") + 
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())+
-  facet_wrap(~body_location, ncol=2)
+  facet_wrap(~body_location_pretty, ncol=2)
 
 novel_transcript_types <-  novel_isoform_anno_df %>% filter(label != 'Protein Coding') %>% 
   mutate(group = 'Transcript Type') %>% 
@@ -212,6 +235,7 @@ novel_transcript_types <-  novel_isoform_anno_df %>% filter(label != 'Protein Co
   geom_bar(position = 'fill',stat = 'identity') +
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
   ylab('% of all novel transcripts') +
+  cowplot::theme_cowplot() + 
   theme(panel.background = element_blank(), axis.title.x = element_blank())
 
 novel_exon_types <- exon_type_by_transcript_type %>% group_by(nv_type_rc) %>% 
@@ -222,22 +246,29 @@ novel_exon_types <- exon_type_by_transcript_type %>% group_by(nv_type_rc) %>%
   geom_bar(position = 'fill',stat = 'identity') +
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
   ylab('% of all novel transcripts') +
+  cowplot::theme_cowplot() +
   theme(panel.background = element_blank(), axis.title.x = element_blank())
 
 exon_type_tx_plot <- exon_type_by_transcript_type %>% 
+  mutate(comp_transcript_type = gsub('Isoform', 'Isoform,\n', comp_transcript_type)) %>% 
+  mutate(nv_type_rc = gsub('_',' ', nv_type_rc),
+         nv_type_rc = gsub('novel', 'Novel', nv_type_rc)) %>% 
   group_by(comp_transcript_type, nv_type_rc) %>% 
   summarise(count = n()) %>% 
   ggplot(data=., aes(x  = comp_transcript_type,y=count, fill = nv_type_rc)) +
   geom_bar(position = 'fill', stat = 'identity')+
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
-  ylab('% of Transcripts') +
-  theme(panel.background = element_blank(), axis.title.x = element_blank())
+  ylab('Proportion of Transcripts') +
+  cowplot::theme_cowplot() +
+  theme(axis.text.x=element_text(angle=45, hjust = 1), 
+        panel.background = element_blank(), axis.title.x = element_blank()) +
+  scale_fill_manual(values = pals::cols25() %>% unname(), name = 'Transcript\nCategory')
 
 layout <- '
 AB
 AC
 '
-isotype_per_tissue + loci + exon_type_tx_plot +plot_annotation(tag_levels = 'A') +plot_layout(design = layout)
+isotype_per_tissue + loci + exon_type_tx_plot +plot_annotation(tag_levels = 'A') +plot_layout(design = layout, heights = c(1,5), widths = c(1.5,1), guides = 'collect') 
 
 ```
 
