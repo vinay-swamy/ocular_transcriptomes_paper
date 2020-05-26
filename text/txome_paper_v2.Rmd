@@ -13,12 +13,12 @@ output:
     df_print: kable
 ---
 
-```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
-#knitr::opts_knit$set(root.dir = '~/NIH/occular_transcriptomes_paper/')
-
-knitr::opts_knit$set(root.dir = '/data/swamyvs/ocular_transcriptomes_paper')
-knitr::opts_chunk$set(echo = F, message = F, warning = F)
+```{r setup, include=FALSE, cache = FALSE}
+require("knitr")
+## setting working directory
+opts_knit$set(root.dir = "~/git/ocular_transcriptomes_paper/")
 ```
+
 
 
 ```{r prep}
@@ -32,7 +32,7 @@ library(patchwork)
 library(knitr)
 library(grid)
 library(png)
-sample_table <- read_tsv('/data/swamyvs/ocular_transcriptomes_pipeline/sampleTableFullV3.tsv') %>% filter(subtissue != 'synth')
+sample_table <- read_tsv('sampleTableFullV3.tsv') %>% filter(subtissue != 'synth')
 load('clean_data/rdata/tissue_to_colors.Rdata')
 load('clean_data/rdata/core_tight.Rdata')
 tissue_color_mapping_df <- bind_rows(tissue_color_mapping_df,  tibble(body_location=c('Brain(avg)', 'Body(avg)'), color=c('orange','yellow')))
@@ -57,9 +57,9 @@ NUM_TOTAL_TX_BODY = NUM_NOVEL_TX_BODY + NUM_REF_TX_BODY
 # Introduction
 
 |        The transcriptome is defined as the set of distinct mRNA transcripts expressed in a population of identical cells. Although there are an estimated 20,000 genes, during transcription several RNA processing steps modify immature RNA and drive the formation of multiple, distinct gene isoforms.  This processing includes alternative promoter usage, alternative splicing, and alternative polyadenylation. The full biological impact of gene isoforms has not been fully elucidated, but multiple studies have shown that gene isoforms can have distinct  and critical biological functions.
-       The detection of novel gene isoforms is a complicated task, but RNA-seq has been used as a powerful tool for investigating gene isoforms. Early methods using RNA-seq to detect gene isoforms generally focused solely on investigating the single RNA processing mechanism and determining what gene isoforms it was driving. For example, the computational tool rMATS detects novel gene isoforms by analyzing splicing patterns using RNA-seq[-@shen_rmats_2014]. More recently, researchers have adapted methods from genome assembly to use RNA-seq to reconstruct the whole transcriptome of a biological samples, dubbed *de novo* transcriptome construction.[-@haas_novo_2013]
+The detection of novel gene isoforms is a complicated task, but RNA-seq has been used as a powerful tool for investigating gene isoforms. Early methods using RNA-seq to detect gene isoforms generally focused solely on investigating the single RNA processing mechanism and determining what gene isoforms it was driving. For example, the computational tool rMATS detects novel gene isoforms by analyzing splicing patterns using RNA-seq[-@shen_rmats_2014]. More recently, researchers have adapted methods from genome assembly to use RNA-seq to reconstruct the whole transcriptome of a biological samples, dubbed *de novo* transcriptome construction.[-@haas_novo_2013]
 |        *De novo* transcriptome construction uses short RNA-seq reads to reconstruct full-length mRNA transcripts. This is a particularly useful method because it is independent of any RNA processing mechanism. A major shortcoming of this method is that a large number of samples is required to combat the noisy nature of RNA-seq data, but because of the increasingly inexpensive sequencing, data sets of the necessary size are now available. The most comprehensive *de novo* transcriptome project to date has been CHESS, which used the GTEx dataset to construct *de novo* transcriptomes in over 9000 RNA-seq samples from 49 distinct location of the body to create a comprehensive annotation of mRNA transcripts across the human body. [-@pertea_stringtie_2015],[-@gtex_consortium_genetic_2017],[-@pertea_chess_2018] However, as the GTEx dataset lacks any ocular tissues, the CHESS database is an incomplete annotation of the human transcriptome
-       In this study we *de novo* constructed the transcriptome of the eye using a previously published data set containing over 800 ocular tissue samples compiled from mining publicly available sequencing data. [@swamy_eye_2019] ) We focused on three major ocular subtissues: The cornea, retina, and the retinal pigmented epithelium (RPE) using RNA-seq data from both adult and fetal tissues and used rigorous analysis pipeline to create a high-quality pan-eye transcriptome, revealing hundreds of novel gene isoforms as well as several novel genes. In addition to our ocular samples, we used a subset of the GTEx dataset to construct transcriptomes for 49 other locations across the body to facilitate comparisons in transcriptomes across the body. Here, we provide our *de novo* transcriptomes as a resource to other researchers through an R package and webapp.
+In this study we *de novo* constructed the transcriptome of the eye using a previously published data set containing over 800 ocular tissue samples compiled from mining publicly available sequencing data. [@swamy_eye_2019] ) We focused on three major ocular subtissues: The cornea, retina, and the retinal pigmented epithelium (RPE) using RNA-seq data from both adult and fetal tissues and used rigorous analysis pipeline to create a high-quality pan-eye transcriptome, revealing hundreds of novel gene isoforms as well as several novel genes. In addition to our ocular samples, we used a subset of the GTEx dataset to construct transcriptomes for 49 other locations across the body to facilitate comparisons in transcriptomes across the body. Here, we provide our *de novo* transcriptomes as a resource to other researchers through an R package and webapp.
 
 # Methods 
 
@@ -109,47 +109,36 @@ Protein coding novel loci were compared to the uniprot protein sequence data bas
 ## Long Read Pacbio RNA sequencing guides *de novo* transcriptome construction
 In order to determine the accuracy of short read transcriptome construction, we first generated PacBio long read RNA-seq data and illumina short read RNA-seq data from a stem cell derived RPE cell line. These cell lines are cultured using a highly optimized protocol, and thus shuold have minimal biological variation. We used this sequencing data to contruct a long read transcriptome and a short read transcirptome.  As long read sequencing capture full length trancripts, we hypothesize that it can serve as a ground truth for evaluating short read transcirptome methods as have others.<cite> When comparing the construction accuracy(methods) between the two builds, we see initally little concordance between the two builds. 
 
-```{r fig.height=16, fig.width=12}
-length_upset <- upset(data = length_df_plotting %>% rename(PacBio = in_pacbio, Stringtie = in_stringtie) , 
-      intersect = c('PacBio', 'Stringtie'), 
-      name='build', 
-      annotations = list(
-        'Length'  = list(
-          aes=aes(x=intersection, y=length),
-          geom=list(geom_violin(),
-                    geom_hline(yintercept = 2000, color='red')
-            )
-        )
-        
-      ),
-      themes=upset_modify_themes(
-        list(
-            'overall_sizes'=theme(axis.text.x=element_text(angle=45))
-            )
-       ),
-      height_ratio = .2,
-      width_ratio = .2,
-      wrap = TRUE) +
-  ggtitle('intersection of constructed transcripts between builds' )+
-  theme(plot.title = element_text(hjust = 0.5,size = 16))
+```{r fig.height=5, fig.width=8}
+sum_counts <- length_df_plotting %>% 
+  filter(intersection_case %in% c('stringtie','pacbio','stringtie-pacbio')) %>% 
+  mutate(intersection_case = gsub('stringtie', 'StringTie', intersection_case),
+         intersection_case = gsub('pacbio', 'PacBio', intersection_case),
+         intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% group_by(intersection_case) %>% count()
+violin_plot <- length_df_plotting %>% 
+  filter(intersection_case %in% c('stringtie','pacbio','stringtie-pacbio')) %>% 
+  mutate(intersection_case = gsub('stringtie', 'StringTie', intersection_case),
+         intersection_case = gsub('pacbio', 'PacBio', intersection_case),
+         intersection_case = gsub('StringTie-PacBio', 'PacBio &\nStringTie', intersection_case)) %>% 
+  ggplot() +
+  scale_y_continuous(breaks = c(2000,4000,6000, 8000, 10000)) +
+  geom_text(data = sum_counts, aes(x=intersection_case, y = 11000, label=n), stat= 'identity') +
+  geom_violin(aes(x=intersection_case,y=length)) + geom_hline(yintercept = 2000, color='red') + cowplot::theme_cowplot() + ylab('Transcript\nLength (bp)') + xlab('') + coord_flip(ylim = c(0,11500))
+
 tpm_exp_plot <-  ggplot(data = tpm_df_plotting %>% ungroup, aes(x=co, y=acc, color=`Length Interval`)) + 
-    geom_point() + 
-    geom_line()+
-    xlim(c(-3,26))+
-    ylim(c(0,1.3))+
-    geom_label_repel(data = labdf_plotting%>% ungroup, aes(x=co, y=y, label = total_tx), fill='white', color='black', nudge_x = -1.5, nudge_y = .25) +
-    labs(label = 'asf')+
-    ylab('build accuracy\n(stringtie ∩ pacbio / stringtie)') +
-    xlab('TPM threshold') +
-    ggtitle('effect of TPM cutoffs on accuracy of stringtie build, by length' ) +
-    facet_wrap(~filtering_type) +
-    theme_minimal()
-layout <- '
-##AA##
-##AA##
-BBBBBB
-'
-length_upset/tpm_exp_plot +plot_annotation(tag_levels = 'A')
+  geom_point() + 
+  geom_line()+
+  #xlim(c(-3,26))+
+  #ylim(c(0,1.3))+
+  #geom_label_repel(data = labdf_plotting%>% ungroup, aes(x=co, y=y, label = total_tx), fill='white', color='black', nudge_x = -1.5, nudge_y = .25) +
+  labs(label = 'asf')+
+  ylab('Build Accuracy\n(StringTie ∩ PacBio / StringTie)') +
+  xlab('TPM threshold')  +
+  facet_wrap(~filtering_type) +
+  cowplot::theme_cowplot() +
+  scale_color_viridis_d()
+
+violin_plot/tpm_exp_plot +plot_annotation(tag_levels = 'A') + plot_layout(heights = c(1,1.7))
 
 ```
 
@@ -165,12 +154,14 @@ Figure 1. Comparison of long read and short read fetal RPE transcriptomes. A) In
 ```{r}
 df <- sample_table %>% 
   left_join(core_tight) %>% 
-  filter(!body_location %in% c('Body', 'Brain', 'ESC_Stem.Cell.Line', 'Lens_Stem.Cell.Line')) %>% 
+  filter(!body_location %in% c('Body', 'Brain', 'ESC_Stem.Cell.Line', 'Lens_Stem.Cell.Line')) %>%
   group_by(subtissue) %>%
-  summarise(`number of samples` = n(), `number of studies` = length(unique(study))) %>% 
-  arrange(desc(`number of studies`)) %>% 
-  inner_join(tx_counts %>% select(subtissue, `transcriptome size`=filtered)) %>% 
-  mutate(subtissue=gsub('_|\\.',' ', subtissue)) 
+  summarise(`Samples` = n(), `Studies` = length(unique(study))) %>% 
+  arrange(desc(`Studies`)) %>% 
+  inner_join(tx_counts %>% select(subtissue, `Transcriptome Count`=filtered)) %>% 
+  mutate(subtissue=gsub('_|\\.',' ', subtissue)) %>% 
+  mutate(subtissue = gsub(' Tissue', '', subtissue)) %>% 
+  separate(subtissue, into  = c('Tissue' , 'Source'), sep = ' ')
 kable(df)
 ```
 
@@ -184,36 +175,59 @@ Table 1. Ocular sample dataset overview  and transcriptome size. Transcriptome s
 Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence. Novel isoforms are further classified by the novelty of its encoded protien, ie novel ORF, a novel isoform with a known ORF, and isofroms with no orf as noncoding isoforms. The number of distinct ORFs is significanlty less than the number of transcripts, with XXX previously annotated ORFs and YYY novel ORFs.
 Across all tissues there is an average of XXX novel exons per tissue. We note that the total number of distinct ORF is much smaller than the    Cornea fetal tissue as the highest, where as XXX tissue has the lowest.
 
-```{r  fig.height=13, fig.width=16}
+```{r}
 
 novel_isoforms_per_tissue <- inner_join(novel_transcripts_per_tissue, novel_orfs_per_tissue) %>% 
   select(-novel_pc_count) %>% 
   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
-  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  mutate(transcript_type = gsub('_',' ', transcript_type),
+         transcript_type = gsub(' count', '', transcript_type),
+         transcript_type = gsub('nc','NC', transcript_type),
+         transcript_type = gsub('orf','ORF', transcript_type),
+         transcript_type = gsub('novel','Novel', transcript_type),
+         transcript_type = gsub('ref','Ref.', transcript_type))
 novel_loci_per_tissue <- novel_loci_per_tissue %>% 
   gather(key = 'transcript_type', value = 'counts', -body_location, -color) %>% 
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
-  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location))
+  mutate(transcript_type = gsub('_\\w+','', transcript_type),
+         transcript_type = gsub('noncoding' ,'Noncoding', transcript_type),
+         transcript_type = gsub('pc','Protein\nCoding', transcript_type)) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty))
+color_list<- novel_isoforms_per_tissue$color
+names(color_list) <- novel_isoforms_per_tissue$body_location_pretty
+```
 
+```{r  fig.height=7, fig.width=8}
 loci <- ggplot(data = novel_loci_per_tissue) +
-    geom_col(aes(x=body_location, y=counts, fill = body_location, alpha = transcript_type), position = 'dodge') +
-    scale_fill_manual(values = color_list) +
-    scale_alpha_discrete(range=c(.5,1)) +
-    ggtitle('Novel Isoforms Contructed Across the Body')+
-    ylab('number of novel transcripts')+
-    xlab('Body Location')+
-    theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+  geom_col(aes(x=body_location_pretty, y=counts, fill = body_location_pretty, alpha = transcript_type), position = 'dodge') +
+  scale_fill_manual(values = color_list, 'Body\nLocation') +
+  scale_alpha_discrete(range=c(.5,1), name = 'Transcript\nType') +
+  #ggtitle('Novel Isoforms Contructed Across the Body')+
+  ylab('Novel\nTranscript\nCount')+
+  xlab('Body Location')+
+  cowplot::theme_cowplot() + 
+  theme(axis.text.x=element_blank(), panel.background = element_blank())
 
 isotype_per_tissue <- ggplot(data = novel_isoforms_per_tissue) +
-    geom_col(aes(x=transcript_type, y=counts, fill = body_location), position = 'dodge') +
-    scale_fill_manual(values = color_list) +
-    scale_alpha_discrete(range=c(.5,1)) +
-    ggtitle('Novel Isoforms Contructed Across the Body')+
-    ylab('number of novel transcripts')+
-    xlab('Body Location')+
-    theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())+
-    facet_wrap(~body_location, ncol=2)
+  geom_col(aes(x=transcript_type, y=counts, fill = body_location_pretty), position = 'dodge') +
+  scale_fill_manual(values = color_list) +
+  scale_alpha_discrete(range=c(.5,1)) +
+  #ggtitle('Novel Isoforms Contructed Across the Body')+
+  ylab('Noncoding Transcript Count')+
+  xlab('')+
+  cowplot::theme_cowplot() + theme(legend.position = "none") + 
+  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())+
+  facet_wrap(~body_location_pretty, ncol=2)
 
 novel_transcript_types <-  novel_isoform_anno_df %>% filter(label != 'Protein Coding') %>% 
   mutate(group = 'Transcript Type') %>% 
@@ -222,6 +236,7 @@ novel_transcript_types <-  novel_isoform_anno_df %>% filter(label != 'Protein Co
   geom_bar(position = 'fill',stat = 'identity') +
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
   ylab('% of all novel transcripts') +
+  cowplot::theme_cowplot() + 
   theme(panel.background = element_blank(), axis.title.x = element_blank())
 
 novel_exon_types <- exon_type_by_transcript_type %>% group_by(nv_type_rc) %>% 
@@ -232,22 +247,29 @@ novel_exon_types <- exon_type_by_transcript_type %>% group_by(nv_type_rc) %>%
   geom_bar(position = 'fill',stat = 'identity') +
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
   ylab('% of all novel transcripts') +
+  cowplot::theme_cowplot() +
   theme(panel.background = element_blank(), axis.title.x = element_blank())
-  
+
 exon_type_tx_plot <- exon_type_by_transcript_type %>% 
+  mutate(comp_transcript_type = gsub('Isoform', 'Isoform,\n', comp_transcript_type)) %>% 
+  mutate(nv_type_rc = gsub('_',' ', nv_type_rc),
+         nv_type_rc = gsub('novel', 'Novel', nv_type_rc)) %>% 
   group_by(comp_transcript_type, nv_type_rc) %>% 
   summarise(count = n()) %>% 
   ggplot(data=., aes(x  = comp_transcript_type,y=count, fill = nv_type_rc)) +
   geom_bar(position = 'fill', stat = 'identity')+
   geom_text(aes(label = count), position = position_fill(vjust=.5)) +
-  ylab('% of Transcripts') +
-  theme(panel.background = element_blank(), axis.title.x = element_blank())
+  ylab('Proportion of Transcripts') +
+  cowplot::theme_cowplot() +
+  theme(axis.text.x=element_text(angle=45, hjust = 1), 
+        panel.background = element_blank(), axis.title.x = element_blank()) +
+  scale_fill_manual(values = pals::cols25() %>% unname(), name = 'Transcript\nCategory')
 
 layout <- '
 AB
 AC
 '
-isotype_per_tissue + loci + exon_type_tx_plot +plot_annotation(tag_levels = 'A') +plot_layout(design = layout)
+isotype_per_tissue + loci + exon_type_tx_plot +plot_annotation(tag_levels = 'A') +plot_layout(design = layout, heights = c(1,5), widths = c(1.5,1), guides = 'collect') 
 
 ```
 
@@ -266,7 +288,7 @@ map_rate_diffs <- all_sample_mapping_rate_difference %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
                                  body_location == 'Brain'~ 'Brain(avg)' ,
-                                  TRUE ~ body_location),
+                                 TRUE ~ body_location),
          mapping_rate_diff = mapping_rate_diff * -1 ,
          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0),
          pt = 'mapping_rate')
@@ -278,12 +300,12 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
                                  body_location == 'Brain'~ 'Brain(avg)' ,
-                                  TRUE ~ body_location)) %>% 
+                                 TRUE ~ body_location)) %>% 
   group_by(body_location) %>%
   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>%
   mutate(pt = 'txome rate')
 
-  
+
 ggplot(map_rate_diffs) +
   geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location))+
   geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location)) +
@@ -314,7 +336,7 @@ primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
                                  body_location == 'Brain'~ 'Brain(avg)' ,
-                                  TRUE ~ body_location)) %>% 
+                                 TRUE ~ body_location)) %>% 
   group_by(body_location, primary_isoform_origin) %>%
   summarise(count = mean(count)) %>% 
   arrange()
@@ -342,28 +364,28 @@ all_tx <- tibble(transcript_id = reduce(plot_list, union))
 plot_df <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x))
 FIG_FONT_SIZE=12
 us <- ComplexUpset::upset(data = plot_df, 
-      intersect = colnames(plot_df)[-1], 
-      min_size= 500, 
-      set_sizes = F,
-      #height_ratio = .8, 
-      #width_ratio = .1,
-      wrap = T,
-      base_annotations = list(
-        'Intersection size' = intersection_size(text_colors = c(on_background='red', on_bar='red'))
-        ),
-      themes=upset_modify_themes(
-        list(
-          "intersections_matrix"= theme(text = element_text(size=FIG_FONT_SIZE) ),
-          "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE, angle = -45) ),
-          "overall_sizes"= theme(axis.text.x=element_text(angle=45),text = element_text(size=FIG_FONT_SIZE) ),
-          "default"= theme(text = element_text(size=FIG_FONT_SIZE) ) 
-            )
-       )
-      
-      )
+                          intersect = colnames(plot_df)[-1], 
+                          min_size= 500, 
+                          set_sizes = F,
+                          #height_ratio = .8, 
+                          #width_ratio = .1,
+                          wrap = T,
+                          base_annotations = list(
+                            'Intersection size' = intersection_size(text_colors = c(on_background='red', on_bar='red'))
+                          ),
+                          themes=upset_modify_themes(
+                            list(
+                              "intersections_matrix"= theme(text = element_text(size=FIG_FONT_SIZE) ),
+                              "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE, angle = -45) ),
+                              "overall_sizes"= theme(axis.text.x=element_text(angle=45),text = element_text(size=FIG_FONT_SIZE) ),
+                              "default"= theme(text = element_text(size=FIG_FONT_SIZE) ) 
+                            )
+                          )
+                          
+)
 
 plotting_piu_df <- piu_df %>% mutate(new_stage=ifelse(stage == 'adult', 'Adult', 'Fetal'), 
-                            subtissue=paste0(tissue, '_', new_stage, '.Tissue'))
+                                     subtissue=paste0(tissue, '_', new_stage, '.Tissue'))
 piu <- ggplot(data=plotting_piu_df, aes(x=stage, y=piu, fill=subtissue, color=subtissue)) + 
   geom_flat_violin(position = position_nudge(x = .2, y = 0),adjust = 2)+
   geom_point(position = position_jitter(width = .15), size = .25, alpha=.2) + 
@@ -391,11 +413,11 @@ library(patchwork)
 load('clean_data/rdata/novel_loci_fig.Rdata')
 
 cov <- ggplot(cov_df, aes(x=coord,y=cov, group = sample))+
-            geom_line( alpha = .3)+
-            geom_area(alpha = .3)+
-            #ggtitle(paste(txid, s_st))+
-            theme(axis.title.x = element_blank(), panel.background = element_blank(), 
-                  axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  geom_line( alpha = .3)+
+  geom_area(alpha = .3)+
+  #ggtitle(paste(txid, s_st))+
+  theme(axis.title.x = element_blank(), panel.background = element_blank(), 
+        axis.text.x = element_blank(), axis.ticks.x = element_blank())
 pt <- ifelse(gene_model_df$strand[1] == '+',62, 60)
 model <- ggplot(gene_model_df)+
   geom_rect(aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax))+
@@ -436,32 +458,32 @@ load('/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_results.Rda
 
 n=15
 vep_exp_all_eye <- vep_impact_matrix %>% 
-    filter(rowSums(.[,eye_tissues] == 3) ==6, one_count>=n)
+  filter(rowSums(.[,eye_tissues] == 3) ==6, one_count>=n)
 vep_no_eye <- vep_impact_matrix %>% 
-    filter(rowSums(.[,eye_tissues] == 1) <=2,  three_count >=n/2, two_count >=3) 
+  filter(rowSums(.[,eye_tissues] == 1) <=2,  three_count >=n/2, two_count >=3) 
 
 
 
 vep_example <- bind_rows( vep_exp_all_eye %>% arrange(desc(var))%>% .[1:n,] %>% select(allele_id, eye_tissues, everything()),
-                 vep_no_eye %>% arrange(desc(var)) %>% .[1:n,] %>% select(allele_id, eye_tissues, everything()) ,
-                 )
+                          vep_no_eye %>% arrange(desc(var)) %>% .[1:n,] %>% select(allele_id, eye_tissues, everything()) ,
+)
 
 plot_df <- filter(vep_by_tissue) %>% filter(allele_id %in% vep_example$allele_id) %>%
-    mutate(avg_exp = log2(max_impact_avg_exp+1), med_exp = log2(max_impact_med_exp + 1),
-           allele_id = as.character(allele_id), 
-           `Variant Impact` = case_when(max_impact == 1 ~'Low',
-                                  max_impact == 2 ~ 'Moderate', 
-                                  max_impact == 3 ~ 'High') %>% factor(levels=c('Low', 'Moderate', 'High')),
-            subtissue = factor(subtissue, levels = c(eye_tissues, body_tissues))
-    ) %>% 
+  mutate(avg_exp = log2(max_impact_avg_exp+1), med_exp = log2(max_impact_med_exp + 1),
+         allele_id = as.character(allele_id), 
+         `Variant Impact` = case_when(max_impact == 1 ~'Low',
+                                      max_impact == 2 ~ 'Moderate', 
+                                      max_impact == 3 ~ 'High') %>% factor(levels=c('Low', 'Moderate', 'High')),
+         subtissue = factor(subtissue, levels = c(eye_tissues, body_tissues))
+  ) %>% 
   rename(`log2(TPM + 1)` = avg_exp)
 plot_df[is.na(plot_df)] <- 0
 cl <- c('Low' = 'lightblue', 'Moderate' = 'lightgreen', 'High' = 'red')
 ggplot(plot_df, aes(x =allele_id, y=subtissue))+
-    geom_point(aes(size = `log2(TPM + 1)`, color = `Variant Impact`))+
-    scale_color_manual(values =cl )+
-    ggtitle('Tissue Specific Variant Prioritization') +
-    theme(axis.text.x.bottom = element_blank(), panel.background = element_blank())
+  geom_point(aes(size = `log2(TPM + 1)`, color = `Variant Impact`))+
+  scale_color_manual(values =cl )+
+  ggtitle('Tissue Specific Variant Prioritization') +
+  theme(axis.text.x.bottom = element_blank(), panel.background = element_blank())
 
 ```
 
@@ -498,7 +520,16 @@ Finally, we package all tools used for out transcriptome pipeline within a porta
 # Discussion
 
 |       Motivated by the lack of a comprehensive pan eye transcriptome and so we created the first comprehensive set of ocular transcriptomes.
+
 By using long read RNA-sequencing data to calibrate our short-read construction pipeline, we are confident we created real, biologically relevant transcriptomes.  
+
+By calibrating our short read constrution pipeline with long read data, our transcriptomes are more accurate than previous work. 
+We used a large dataset compiled from published RNA-seq data to build these transcriptomes, an approach which has several key advantages. First, our large sample size allows us to combat the noisy nature of RNA-seq data. More importantly, because we only keep transcripts detected in samples from multiple studies with multiple types of sample preparation, we can be more confident that our transcriptomes accurately reflect the biology of its originating subtissue and are not an artifact due to preparation of the samples.
+We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
+We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data, likely indicating that our constructed transcripts are not an artifact of the construction algorithm. These smaller transcriptomes create a significantly lower dimesional space for researchers to explore.
+In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that   it is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction. We find that within the ocular transcriptome, novel isoforms do not lead to a change in the encoded protein product and lie within the untranslated region of the gene. It is difficult to identify the exact role of these novel exons, but others have shown that the untranslated regions of transcripts contain multiple types of regulatory elements.
+We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
+In the future, we aim to provide a more refined ocular transcriptome by using long read RNA-seq data from ocular tissues. Long read RNA-seq captures entire RNA transcripts and thus removes ambiguity due to short read noise or algorithmic construction and will provide a more accurate characterization of the pan eye transcriptome.
 
 We used a large dataset compiled from published RNA-seq data to build these transcriptomes, an approach which has several key advantages. First, our large sample size allows us to combat the noisy nature of RNA-seq data. More importantly as our samples originate from multiple studies with multiple types of sample preparation, we can be more confident that our transcriptomes accurately reflect the biology of its originating subtissue and are not an artifact due to preparation of the samples. 
 
