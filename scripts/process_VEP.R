@@ -3,6 +3,8 @@ library(data.table)
 library(matrixStats)
 library(argparse)
 library(yaml)
+library(RBedtools)
+
 read_VEP <- function(file, tissue){
     fread(file, sep = '\t', skip = '##') %>% 
         as_tibble %>% rename(allele_id = `#Uploaded_variation`) %>% 
@@ -21,27 +23,22 @@ parser <- ArgumentParser()
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--fileYaml', action = 'store', dest = 'file_yaml')
 ####
-data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
-files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+# data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
+# files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
 ####
 list2env(parser$parse_args(), .GlobalEnv)
 files <- read_yaml(files_yaml)
 
-
-
-
 setwd(data_dir)
-library(tidyverse)
-library(data.table)
-library(RBedtools)
-library(matrixStats)
-library(ComplexHeatmap)
-library(RColorBrewer)
+
 
 clinvar_anno <- fread('ref/clinvar_variant_summary.txt.gz', sep = '\t') %>% 
-    as_tibble %>% rename(allele_id = `#AlleleID`)
+    as_tibble %>% rename(allele_id = `#AlleleID`) 
+clinvar_vus <-  clinvar_anno %>% filter(ClinicalSignificance == "Uncertain significance")
 
-VUS_ids <- clinvar_anno %>% filter(ClinicalSignificance == "Uncertain significance") %>% pull(allele_id) %>% unique
+clinvar_vus_eye <- clinvar_vus %>% filter(grepl('macula|retin|leber|cone|rod|cornea|bardet|ocular|optic', PhenotypeList))
+
+VUS_ids <-clinvar_vus  %>% pull(allele_id) %>% unique
 clinsig_rank <- tibble(IMPACT = c('HIGH', 'MODERATE', 'LOW', "MODIFIER")) %>%  
     mutate(impact_code  = case_when(IMPACT == 'HIGH' ~ 3, 
                                     IMPACT == 'MODERATE' ~2, 
@@ -107,4 +104,4 @@ vep_impact_matrix <- vep_by_tissue %>%
 vep_impact_matrix[is.na(vep_impact_matrix)] <- 1
 eye_tissues <- c("RPE_Fetal.Tissue",  "Retina_Adult.Tissue",  "RPE_Adult.Tissue", "Cornea_Adult.Tissue", "Cornea_Fetal.Tissue", "Retina_Fetal.Tissue")
 body_tissues <- filter(sample_table, !subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
-save(vep_impact_matrix, vep_by_tissue, file = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_results.Rdata')
+save(vep_impact_matrix, vep_by_tissue,clinvar_vus_eye, file = files$variant_results_rdata)
