@@ -13,9 +13,9 @@ parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 list2env(parser$parse_args(), .GlobalEnv)
 
 ####
-working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
-data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
-files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+# working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+# data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
+# files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
 ####
 files <- read_yaml(files_yaml)
 setwd(working_dir)
@@ -148,7 +148,7 @@ appris_tags_clean <- filter(appris_tags, !is.na(appris_tag)) %>%
 table(appris_tags_clean$tag_level)
 appris_in_dntx <-  inner_join(dntx2enst, appris_tags_clean)
 table(appris_in_dntx$tag_level)
-nrow(appris_in_dntx %>% filter(tag_level <6)) / nrow(appris_tags_clean %>% filter(tag_level <6))
+NUM_APPRIS_RECOVERY_RATE <-  {nrow(appris_in_dntx %>% filter(tag_level <6)) / nrow(appris_tags_clean %>% filter(tag_level <6))} %>% round(digits = 5)
 tx2code <- tc2ms_all %>% select(transcript_id, class_code)
 primary_isoforms_per_tissue <- piu_all %>% 
     gather(key = 'subtissue', value = 'piu', -transcript_id, -gene_name) %>% 
@@ -216,7 +216,7 @@ long_eye_det <- det_mat %>% select(transcript_id, all_of(eye_tissues)) %>%
 piu_df <- lapply(res, function(x) x[['piu_df']]) %>% bind_rows %>% inner_join(long_eye_det) %>% filter(det)
 
 
-save(novel_tx_by_tissue, novel_eye_tx_by_tissue, piu_df, location_df, primary_isoforms_per_tissue, file = files$novel_isoform_analysis_rdata)
+save(novel_tx_by_tissue, novel_eye_tx_by_tissue, piu_df, location_df, primary_isoforms_per_tissue,NUM_APPRIS_RECOVERY_RATE, file = files$novel_isoform_analysis_rdata)
 
 
 
