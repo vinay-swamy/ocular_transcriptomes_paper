@@ -3,18 +3,6 @@ library(matrixStats)
 library(yaml)
 library(argparse)
 source('~/scripts/read_salmon.R')
-# args <- c('/Volumes/data/ocular_transcriptomes_paper/',
-#           '/Volumes/data/ocular_transcriptomes_pipeline/',
-#           'sampleTableFull.tsv',
-#           'data/gtfs/all_tissues.combined_NovelAno.gtf',
-#           'data/salmon_quant/RPE_Fetal.Tissue/',
-#           'data/misc/TCONS2MSTRG.tsv',
-#           'RPE_Fetal.Tissue',
-#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/DNTX_salmon_mapping_rates.tab',
-#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/gencode_salmon_mapping_rates.tab',
-#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab',
-#           '/Volumes/data/ocular_transcriptomes_paper/clean_data/transcriptome_pipeline_stats.Rdata'
-#           )
 
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action='store', dest='working_dir')
@@ -49,7 +37,7 @@ process_lib_size_tabs <- function(file, type){
 }
 sample_table <- read_tsv(files$sample_table) %>% filter(subtissue != 'synth')
 t2m <- read_tsv(files$tcons2mstrg)
-
+head(t2m)
 #COUNT GTF TX COUNTS
 #----
 
@@ -86,8 +74,20 @@ all_sample_mapping_rates <- sample_mapping_rates <- inner_join(DNTX_mapping_rate
     gather(key='build',value = 'mapping_rate', -body_location, -sample) %>% 
     mutate(build=ifelse(build == 'DNTX_percent_mapped', 'DNTX', 'gencode'))
 
+load(files$gencode_quant)
+subtissues <- unique(sample_table$subtissue)
+calc_txome_size <- function(t_tissue){
+    samples <- filter(sample_table, subtissue == t_tissue) %>% pull(sample) 
+    all_exp <- sum(rowSums(gencode_quant[,samples]) != 0)
+    avg_1tpm <- sum(rowMeans(gencode_quant[,samples]) >=1)
+    return(tibble(subtissue = t_tissue, all_exp = all_exp, avg_1tpm = avg_1tpm))
+}
 
-save(median_sample_mapping_rates,all_sample_mapping_rates,all_sample_mapping_rate_difference, tx_counts,  file = files$txome_stats_rdata)
+gencode_tx_size <- lapply(subtissues, calc_txome_size) %>% bind_rows()
+
+
+
+save(gencode_tx_size, all_sample_mapping_rates,all_sample_mapping_rate_difference, tx_counts,  file = files$txome_stats_rdata)
 
 
 
