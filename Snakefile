@@ -54,6 +54,8 @@ rule calc_txome_tx_counts_and_mapping_Rates:
     input:  
         full_anno_gtf =files['anno_gtf'],
         tcons2mstrg = files['tcons2mstrg']
+    params:
+        dntx_quant_path = files['dntx_quant_path']
     output: 
         DNTX_mr= files['DNTX_mr'],
         gencode_mr= files['gencode_mr'],
@@ -64,6 +66,7 @@ rule calc_txome_tx_counts_and_mapping_Rates:
         bash scripts/count_stats_from_files.sh \
             {sample_file} \
             {data_dir} \
+            {params.dntx_quant_path} \
             {output.DNTX_mr} \
             {output.gencode_mr} \
             {output.gtf_tx_counts}
@@ -82,7 +85,8 @@ rule summarizeBuildResults:
         full_anno_gtf =files['anno_gtf']
     params: 
         cds_gtf_dir = 'clean_data/CDS_gtf/', 
-        raw_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_comp.tracking'
+        comp_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_comp.tracking',
+        distinct_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_distinct.tracking'
     output:
         color_mapping_rdata=files['color_mapping_rdata'],
         build_results_rdata= files['build_results_rdata']
@@ -101,7 +105,8 @@ rule summarizeBuildResults:
         Rscript scripts/summarize_build_results.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
-            --rawCDStrack {params.raw_cds_track} \
+            --compCDStrack {params.comp_cds_track} \
+            --distinctCDStrack {params.distinct_cds_track} \
             --filesYaml {files_yaml}
    
         '''
@@ -153,18 +158,16 @@ rule novel_isoforms_ocular_tissues:
         '''
 
 rule process_VEP:
-    # input: 
-    #     expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+    input: 
+        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
     output: 
-        all_variant_results = files['all_variant_results_rdata'],
-        example_variant_results = files['example_variant_results_rdata']
+        example_variant_results = files['variant_results_rdata']
     shell:
         '''
         module load {R_version}
         Rscript scripts/process_VEP.R \
         --dataDir {data_dir} \
-        --allVariantFile   {output.all_variant_results} \
-        --exampleVariantFile {output.example_variant_results}     
+        --fileYaml {files_yaml}  
         '''
 
 
@@ -180,14 +183,7 @@ rule process_hmmer:
             --dataDir {data_dir} \
             --filesYaml {files_yaml}
         '''
-# rule novel_tx_in_fetal_retina_analysis:
-#     input:eiad='clean_data/EiaD_quant.Rdata', tc2mstrg=tcons2mstrg , gff3=gff3_file
-#     output:working_dir+ 'clean_data/rdata/fetal_novel_de_results.Rdata',working_dir+ 'clean_data/fetal_de_novel_tx.txt', working_dir+ 'clean_data/rdata/fetal_novel_de_hm.Rdata'
-#     shell:
-#         '''
-#         module load {R_version}
-#         Rscript scripts/analyze_novel_tx_fetal_retina.R {working_dir} {sample_file} {input.eiad} {input.tc2mstrg} {gtf_file} {input.gff3} {output}
-#         '''
+
 
 '''
 Get Nv tx >  remove from fasta > build index
@@ -199,15 +195,13 @@ tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.
 
 rule knit_notebooks:
     input: 
-        working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', 
-        working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', 
-        working_dir + 'clean_data/rdata/novel_isoforms.Rdata', 
-        working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata', 
-        working_dir + 'clean_data/rdata/longread_summary.Rdata',
-        working_dir +'clean_data/rdata/vep_eye_example.Rdata', 
-        working_dir + 'clean_data/rdata/hmmer_results.Rdata'
-    #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
-    #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
+        files['build_results_rdata'],
+        files['txome_stats_rdata'], 
+        files['novel_isoform_analysis_rdata'],
+        files['paper_numbers_rdata'],
+        files['long_read_results_rdata'],
+        files['variant_results_rdata'], 
+        files['hmmer_results']
     output: 
         'notebooks/results_v2.html'
     shell:
