@@ -284,7 +284,7 @@ We found that the majority of novel exons with our dataset are novel first and l
 
 ## *de novo* transcriptomes reduce overall transcriptome sizes
 
-```{r, fig.height=8, fig.width=5}
+```{r, fig.height=5, fig.width=4}
 map_rate_diffs <- all_sample_mapping_rate_difference %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
@@ -323,10 +323,11 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
 ggplot(map_rate_diffs) +
   geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location_pretty))+
   geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location_pretty)) +
-  scale_fill_manual(values = color_list) +
+  scale_fill_manual(values = color_list, ) +
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
   facet_wrap(~body_location_pretty, ncol = 2) +
-  ylab('fraction decrease')
+  ylab('fraction decrease') +
+  theme(legend.position = "none")
 
 ```
 
@@ -341,7 +342,7 @@ Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decre
 |     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans. based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a simpler but higher resolution tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is more accurate ontology than APPRIS principal isoform.
 
 
-```{r, fig.width= 8}
+```{r, fig.width= 5}
 load('clean_data/rdata/novel_isoforms.Rdata')
 primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>% 
   mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('dntx', 'gencode', 'appris'))) %>% 
@@ -357,7 +358,8 @@ primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
 ggplot(data = primary_isoforms_per_tissue, aes(x = body_location, y=count, fill = primary_isoform_origin))+
   geom_bar(position = 'fill', stat = 'identity')+
   geom_text(aes(label = as.integer(count) ), position = position_fill(vjust=.5)) +
-  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
+  scale_color_brewer(palette = 'Set1')
 
 ```
 
