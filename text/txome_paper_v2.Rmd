@@ -292,11 +292,11 @@ map_rate_diffs <- all_sample_mapping_rate_difference %>%
                                  body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location),
          body_location_pretty=gsub('_|\\.', ' ', body_location),
-                body_location_pretty=gsub('avg','mean', body_location_pretty),
-                body_location_pretty=gsub('Tissue','', body_location_pretty),
-                body_location_pretty=gsub('\\(',' (', body_location_pretty),
-                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
-                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty),
          mapping_rate_diff = mapping_rate_diff * -1 ,
          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0),
          pt = 'mapping_rate')
@@ -309,12 +309,12 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
          body_location=case_when(body_location == 'Body' ~ 'Body(mean)',
                                  body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location)) %>% 
-    mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-                body_location_pretty=gsub('avg','mean', body_location_pretty),
-                body_location_pretty=gsub('Tissue','', body_location_pretty),
-                body_location_pretty=gsub('\\(',' (', body_location_pretty),
-                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
-                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
   group_by(body_location_pretty) %>%
   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>%
   mutate(pt = 'txome rate')
@@ -353,14 +353,14 @@ primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location_pretty=case_when(body_location == 'Body' ~ 'Body(mean)',
-                                 body_location == 'Brain'~ 'Brain(mean)' ,
-                                 TRUE ~ body_location)) %>% 
-    mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-                body_location_pretty=gsub('avg','mean', body_location_pretty),
-                body_location_pretty=gsub('Tissue','', body_location_pretty),
-                body_location_pretty=gsub('\\(',' (', body_location_pretty),
-                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
-                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+                                        body_location == 'Brain'~ 'Brain(mean)' ,
+                                        TRUE ~ body_location)) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
   group_by(body_location_pretty, primary_isoform_origin) %>%
   summarise(count = mean(count)) %>% 
   arrange()
@@ -382,13 +382,20 @@ Figure 4. APPPRIS principal isoforms within the de novo transcriptome
 
 ## Novel Isoforms in Ocular tissues 
 
-```{r, fig.width=10, fig.height=10}
+```{r, fig.width=10, fig.height=5}
 load('clean_data/rdata/novel_isoforms.Rdata')
 source('scripts/R_raincloud.R')
 plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line') ]
 all_tx <- tibble(transcript_id = reduce(plot_list, union))
 plot_df <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x))
 FIG_FONT_SIZE=12
+
+colnames(plot_df) <- gsub('_|\\.', ' ', colnames(plot_df) )                             
+colnames(plot_df) <- gsub('Adult', '(Adult)', colnames(plot_df) )
+colnames(plot_df) <- gsub('Fetal', '(Fetal)', colnames(plot_df) )
+colnames(plot_df) <- gsub('Tissue', '', colnames(plot_df) )
+
+
 us <- ComplexUpset::upset(data = plot_df, 
                           intersect = colnames(plot_df)[-1], 
                           min_size= 500, 
@@ -396,31 +403,43 @@ us <- ComplexUpset::upset(data = plot_df,
                           #height_ratio = .8, 
                           #width_ratio = .1,
                           wrap = T,
+                          stripes = c('white','white'),
                           base_annotations = list(
                             'Intersection size' = intersection_size(text_colors = c(on_background='red', on_bar='red'))
                           ),
                           themes=upset_modify_themes(
                             list(
                               "intersections_matrix"= theme(text = element_text(size=FIG_FONT_SIZE) ),
-                              "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE, angle = -45) ),
+                              "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE),
+                                                         panel.grid.major = element_blank(), 
+                                                         panel.grid.minor = element_blank()),
                               "overall_sizes"= theme(axis.text.x=element_text(angle=45),text = element_text(size=FIG_FONT_SIZE) ),
-                              "default"= theme(text = element_text(size=FIG_FONT_SIZE) ) 
+                              "default"= theme(text = element_text(size=FIG_FONT_SIZE)) 
                             )
                           )
                           
 )
 
 plotting_piu_df <- piu_df %>% mutate(new_stage=ifelse(stage == 'adult', 'Adult', 'Fetal'), 
-                                     subtissue=paste0(tissue, '_', new_stage, '.Tissue'))
+                                     subtissue=paste0(tissue, '_', new_stage, '.Tissue')) %>% 
+  mutate(subtissue=gsub('_|\\.', ' ', subtissue),
+         subtissue=gsub('avg','mean', subtissue),
+         subtissue=gsub('Tissue','', subtissue),
+         subtissue=gsub('\\(',' (', subtissue),
+         subtissue=gsub('Adult','(Adult)', subtissue),
+         subtissue=gsub('Fetal','(Fetal)', subtissue))
+
 piu <- ggplot(data=plotting_piu_df, aes(x=stage, y=piu, fill=subtissue, color=subtissue)) + 
   geom_flat_violin(position = position_nudge(x = .2, y = 0),adjust = 2)+
   geom_point(position = position_jitter(width = .15), size = .25, alpha=.2) + 
   geom_boxplot(outlier.shape = NA, alpha = 1, width = .1, colour = "BLACK")+ 
   scale_fill_manual(values = color_list) +
   scale_color_manual(values = color_list) +
-  ylab('piu')+xlab('tissue')+coord_flip()+ theme_minimal()+ facet_wrap(~tissue, nrow = 3)
+  ylab('piu')+xlab('tissue')+coord_flip()+ 
+  cowplot::theme_cowplot()+ facet_wrap(~tissue, nrow = 3) +
+  theme(legend.position = "none")
 
-(us)/(piu )+ plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE)) 
+us + piu  + plot_layout(widths = c(2,1)) + plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE))
 
 ```
 
