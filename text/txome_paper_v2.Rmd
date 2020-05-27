@@ -183,6 +183,7 @@ novel_isoforms_per_tissue <- inner_join(novel_transcripts_per_tissue, novel_orfs
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
          body_location_pretty=gsub('\\(',' (', body_location_pretty),
          body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
          body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
@@ -199,6 +200,7 @@ novel_loci_per_tissue <- novel_loci_per_tissue %>%
          transcript_type = gsub('noncoding' ,'Noncoding', transcript_type),
          transcript_type = gsub('pc','Protein\nCoding', transcript_type)) %>% 
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
          body_location_pretty=gsub('Tissue','', body_location_pretty),
          body_location_pretty=gsub('\\(',' (', body_location_pretty),
          body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
@@ -286,9 +288,15 @@ We found that the majority of novel exons with our dataset are novel first and l
 map_rate_diffs <- all_sample_mapping_rate_difference %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
+         body_location=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                 body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location),
+         body_location_pretty=gsub('_|\\.', ' ', body_location),
+                body_location_pretty=gsub('avg','mean', body_location_pretty),
+                body_location_pretty=gsub('Tissue','', body_location_pretty),
+                body_location_pretty=gsub('\\(',' (', body_location_pretty),
+                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty),
          mapping_rate_diff = mapping_rate_diff * -1 ,
          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0),
          pt = 'mapping_rate')
@@ -298,20 +306,26 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
   inner_join(subtissue_to_bodyloc) %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
+         body_location=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                 body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location)) %>% 
-  group_by(body_location) %>%
+    mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+                body_location_pretty=gsub('avg','mean', body_location_pretty),
+                body_location_pretty=gsub('Tissue','', body_location_pretty),
+                body_location_pretty=gsub('\\(',' (', body_location_pretty),
+                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  group_by(body_location_pretty) %>%
   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>%
   mutate(pt = 'txome rate')
 
 
 ggplot(map_rate_diffs) +
-  geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location))+
-  geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location)) +
+  geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location_pretty))+
+  geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location_pretty)) +
   scale_fill_manual(values = color_list) +
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
-  facet_wrap(~body_location, ncol = 2) +
+  facet_wrap(~body_location_pretty, ncol = 2) +
   ylab('fraction decrease')
 
 ```
@@ -334,8 +348,8 @@ primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
   inner_join(subtissue_to_bodyloc) %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
+         body_location=case_when(body_location == 'Body' ~ 'Body (mean)',
+                                 body_location == 'Brain'~ 'Brain (mean)' ,
                                  TRUE ~ body_location)) %>% 
   group_by(body_location, primary_isoform_origin) %>%
   summarise(count = mean(count)) %>% 
@@ -543,7 +557,7 @@ we see many novel first exons, novel first exons alterantive promoter usage. Dif
 Though we identified many novel ORF's its difficult to say whether these are actually protein coding. We see that many of the novel ORF's are novel because of retained introns. These retained intron transcirpt may simply be unspliced mRNA. Studies have shown that some neuronal cell types stockpile unspliced transcripts for generating rapid changes in gene expression, and so we may be capturing a simiar phenomenon here. However we are confident that we are capturring true novel protein isoforms. We find a lot, but no where near the upper limit sugessted by <cite>
 
 |      We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
-      
+
 |      In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent.While this seems fairly low, it is difficult to say these are non-functional. Its is entirely possible that these isoforms are from low population cell types. This especially makes sense in the retina, bipolar/amacrine cell types comprise ~15% of the total cell population.  
 It is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction.
 
@@ -556,8 +570,8 @@ novel loci found some, some are interseting, some are not.
 
 
 |       We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. The  work we have is more of creating a an ideal starting point for others to explroe in and many studies simply publish data and dont do anything with it, and so we want to make it easy for others to use, both with our app and containerized pipeline. 
-      
-      
+
+
 As with any purely computational study, results must be taken with a grain of salt. 
 
 # Notes
