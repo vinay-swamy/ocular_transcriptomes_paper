@@ -182,6 +182,7 @@ novel_isoforms_per_tissue <- inner_join(novel_transcripts_per_tissue, novel_orfs
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
          body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
          body_location_pretty=gsub('\\(',' (', body_location_pretty),
          body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
          body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
@@ -198,6 +199,7 @@ novel_loci_per_tissue <- novel_loci_per_tissue %>%
          transcript_type = gsub('noncoding' ,'Noncoding', transcript_type),
          transcript_type = gsub('pc','Protein\nCoding', transcript_type)) %>% 
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
          body_location_pretty=gsub('Tissue','', body_location_pretty),
          body_location_pretty=gsub('\\(',' (', body_location_pretty),
          body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
@@ -281,13 +283,19 @@ We found that the majority of novel exons with our dataset are novel first and l
 
 ## *de novo* transcriptomes reduce overall transcriptome sizes
 
-```{r, fig.height=8, fig.width=5}
+```{r, fig.height=5, fig.width=4}
 map_rate_diffs <- all_sample_mapping_rate_difference %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
+         body_location=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                 body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location),
+         body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty),
          mapping_rate_diff = mapping_rate_diff * -1 ,
          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0),
          pt = 'mapping rate reduction')
@@ -297,23 +305,29 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
   inner_join(subtissue_to_bodyloc) %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
+         body_location=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                 body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location)) %>% 
-  group_by(body_location) %>%
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  group_by(body_location_pretty) %>%
   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>%
   mutate(pt = '% Base txome removed')
 
 cl<- novel_transcripts_per_tissue$color
 names(cl) <- novel_transcripts_per_tissue$body_location
 ggplot(map_rate_diffs) +
-  geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location))+
-  geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location)) +
-  scale_fill_manual(values = cl) +
-  xlab('')+
+  geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location_pretty))+
+  geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location_pretty)) +
+  scale_fill_manual(values = color_list, ) +
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
-  facet_wrap(~body_location, ncol = 2) +
-  ylab('fraction decrease')
+  facet_wrap(~body_location_pretty, ncol = 2) +
+  ylab('fraction decrease') +
+  theme(legend.position = "none")
 
 ```
 
@@ -327,23 +341,34 @@ Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decre
 
 |     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans, based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is better reflects biology than APPRIS principal isoforms.
 
-```{r, fig.width= 8}
+```{r, fig.width= 6}
 load('clean_data/rdata/novel_isoforms.Rdata')
-primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>% 
-  mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('dntx', 'gencode', 'appris'))) %>% 
+primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
+  mutate(primary_isoform_origin = gsub('dntx','DNTx', primary_isoform_origin),
+         primary_isoform_origin = gsub('gencode', 'GENCODE', primary_isoform_origin),
+         primary_isoform_origin = gsub('appris', 'APPRIS', primary_isoform_origin)) %>% 
+  mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('DNTx', 'GENCODE', 'APPRIS'))) %>% 
   inner_join(subtissue_to_bodyloc) %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body(avg)',
-                                 body_location == 'Brain'~ 'Brain(avg)' ,
-                                 TRUE ~ body_location)) %>% 
-  group_by(body_location, primary_isoform_origin) %>%
+         body_location_pretty=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                        body_location == 'Brain'~ 'Brain(mean)' ,
+                                        TRUE ~ body_location)) %>% 
+  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+         body_location_pretty=gsub('avg','mean', body_location_pretty),
+         body_location_pretty=gsub('Tissue','', body_location_pretty),
+         body_location_pretty=gsub('\\(',' (', body_location_pretty),
+         body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+         body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  group_by(body_location_pretty, primary_isoform_origin) %>%
   summarise(count = mean(count)) %>% 
   arrange()
-ggplot(data = primary_isoforms_per_tissue, aes(x = body_location, y=count, fill = primary_isoform_origin))+
+ggplot(data = primary_isoforms_per_tissue, aes(x = body_location_pretty, y=count, fill = primary_isoform_origin))+
   geom_bar(position = 'fill', stat = 'identity')+
   geom_text(aes(label = as.integer(count) ), position = position_fill(vjust=.5)) +
-  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank())
+  cowplot::theme_cowplot() +
+  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
+  scale_fill_brewer(palette = 'Set1', name = 'Origin') + ylab('Ratio') + xlab('')
 
 ```
 
@@ -356,13 +381,20 @@ Figure 4. APPPRIS principal isoforms within the de novo transcriptome
 
 ## Novel Isoforms in Ocular tissues 
 
-```{r, fig.width=10, fig.height=10}
+```{r, fig.width=10, fig.height=5}
 load('clean_data/rdata/novel_isoforms.Rdata')
 source('scripts/R_raincloud.R')
 plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line') ]
 all_tx <- tibble(transcript_id = reduce(plot_list, union))
 plot_df <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x))
 FIG_FONT_SIZE=12
+
+colnames(plot_df) <- gsub('_|\\.', ' ', colnames(plot_df) )                             
+colnames(plot_df) <- gsub('Adult', '(Adult)', colnames(plot_df) )
+colnames(plot_df) <- gsub('Fetal', '(Fetal)', colnames(plot_df) )
+colnames(plot_df) <- gsub('Tissue', '', colnames(plot_df) )
+
+
 us <- ComplexUpset::upset(data = plot_df, 
                           intersect = colnames(plot_df)[-1], 
                           min_size= 500, 
@@ -370,31 +402,43 @@ us <- ComplexUpset::upset(data = plot_df,
                           #height_ratio = .8, 
                           #width_ratio = .1,
                           wrap = T,
+                          stripes = c('white','white'),
                           base_annotations = list(
                             'Intersection size' = intersection_size(text_colors = c(on_background='red', on_bar='red'))
                           ),
                           themes=upset_modify_themes(
                             list(
                               "intersections_matrix"= theme(text = element_text(size=FIG_FONT_SIZE) ),
-                              "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE, angle = -45) ),
+                              "Intersection size"= theme(text = element_text(size=FIG_FONT_SIZE),
+                                                         panel.grid.major = element_blank(), 
+                                                         panel.grid.minor = element_blank()),
                               "overall_sizes"= theme(axis.text.x=element_text(angle=45),text = element_text(size=FIG_FONT_SIZE) ),
-                              "default"= theme(text = element_text(size=FIG_FONT_SIZE) ) 
+                              "default"= theme(text = element_text(size=FIG_FONT_SIZE)) 
                             )
                           )
                           
 )
 
 plotting_piu_df <- piu_df %>% mutate(new_stage=ifelse(stage == 'adult', 'Adult', 'Fetal'), 
-                                     subtissue=paste0(tissue, '_', new_stage, '.Tissue'))
+                                     subtissue=paste0(tissue, '_', new_stage, '.Tissue')) %>% 
+  mutate(subtissue=gsub('_|\\.', ' ', subtissue),
+         subtissue=gsub('avg','mean', subtissue),
+         subtissue=gsub('Tissue','', subtissue),
+         subtissue=gsub('\\(',' (', subtissue),
+         subtissue=gsub('Adult','(Adult)', subtissue),
+         subtissue=gsub('Fetal','(Fetal)', subtissue))
+
 piu <- ggplot(data=plotting_piu_df, aes(x=stage, y=piu, fill=subtissue, color=subtissue)) + 
   geom_flat_violin(position = position_nudge(x = .2, y = 0),adjust = 2)+
   geom_point(position = position_jitter(width = .15), size = .25, alpha=.2) + 
   geom_boxplot(outlier.shape = NA, alpha = 1, width = .1, colour = "BLACK")+ 
   scale_fill_manual(values = color_list) +
   scale_color_manual(values = color_list) +
-  ylab('piu')+xlab('tissue')+coord_flip()+ theme_minimal()+ facet_wrap(~tissue, nrow = 3)
+  ylab('piu')+xlab('tissue')+coord_flip()+ 
+  cowplot::theme_cowplot()+ facet_wrap(~tissue, nrow = 3) +
+  theme(legend.position = "none")
 
-(us)/(piu )+ plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE)) 
+us + piu  + plot_layout(widths = c(2,1)) + plot_annotation(tag_levels  = 'A') & theme(plot.tag = element_text(size= FIG_FONT_SIZE), text = element_text(size = FIG_FONT_SIZE))
 
 ```
 
@@ -534,15 +578,12 @@ Something about the reliability of determining novel 5' ends and 3' ends from RN
 
 We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data, likely indicating that our constructed transcripts are not an artifact of the construction algorithm. These smaller transcriptomes create a significantly lower dimesional space for researchers to explore.
 
-In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that   it is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction. We find that within the ocular transcriptome, novel isoforms do not lead to a change in the encoded protein product and lie within the untranslated region of the gene. It is difficult to identify the exact role of these novel exons, but others have shown that the untranslated regions of transcripts contain multiple types of regulatory elements.
+In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that. Its is entirely possible that these isoforms are from low population cell types. This especially makes sense in the retina, bipolar/amacrine cell types comprise ~15% of the total cell population.  
+It is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction.
 
 We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
 
 
-
-
-Something about APPRIS/primary isoforms
-      
 
 Our tissue specific variant prioitzation is useful for precision medicine applications, 
 
@@ -551,7 +592,6 @@ novel loci found some, some are interseting, some are not.
 
 
 
-      
 
 # Notes
 - Correlation between transcript length and expression?
