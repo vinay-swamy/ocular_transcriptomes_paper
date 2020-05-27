@@ -16,7 +16,8 @@ output:
 ```{r setup, include=FALSE, cache = FALSE}
 require("knitr")
 ## setting working directory
-opts_knit$set(root.dir = "~/git/ocular_transcriptomes_paper/")
+#opts_knit$set(root.dir = "~/git/ocular_transcriptomes_paper/")
+opts_knit$set(root.dir = '/data/swamyvs/ocular_transcriptomes_paper/')
 ```
 
 
@@ -40,7 +41,7 @@ load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 load('clean_data/rdata/transcriptome_pipeline_stats.Rdata')
 subtissue_to_bodyloc <- sample_table %>% select(subtissue, body_location) %>% distinct
 core_tight <- core_tight %>% as_tibble %>% select(sample=sample_accession, study=study_accession) %>% distinct
-load('clean_data/rdata/paper_numbers_and_sup_figs.Rdata')
+load('clean_data/rdata/paper_numbers.Rdata')
 load('clean_data/rdata/sup_figs.Rdata')
 load('clean_data/rdata/longread_summary.Rdata')
 load('clean_data/rdata/buildResultsSummary.Rdata')
@@ -49,9 +50,7 @@ names(color_list) <- novel_transcripts_per_tissue$body_location
 eye_tissues <-  c("RPE_Fetal.Tissue",  "Retina_Adult.Tissue",  "RPE_Adult.Tissue", "Cornea_Adult.Tissue", "Cornea_Fetal.Tissue", "Retina_Fetal.Tissue")
 subtissues <- unique(sample_table$subtissue)
 body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
-NUM_STUDIES = 32
-NUM_REF_TX_BODY = 287945
-NUM_TOTAL_TX_BODY = NUM_NOVEL_TX_BODY + NUM_REF_TX_BODY
+
 ```
 
 # Introduction
@@ -75,7 +74,7 @@ We aligned each sample to the Gencode V28 hg38 assembly using the genomic aligne
 
 ## Construction of tissue specific transcriptomes.
 
-|        We identified studies with healthy, unperturbed RNA-seq samples from `r toString(NUM_BODY_TISSUES + 6)` distinct subtissue regions of the body, downloaded and performed quality control the pertinent sequencing data from the sequence read archive (SRA) using methods from [@swamy_eye_2019] We constructed a transcriptome for each sample, and merged samples together to create <total tissues> tissue specific base transcriptomes. For each tissue-specific transcriptome, removed transcripts that had an average expression less than 1 TPM. All tissue specific transcriptome was merged to forms a single unified gtf to ensure transcript identifiers were the same across tissues. We additionally merged all ocular tissue transcriptomes to generate a single pan-eye  transcriptome
+|        We identified studies with healthy, unperturbed RNA-seq samples from `r toString(NUM_BODY_TISSUES + NUM_EYE_TISSUES)` distinct subtissue regions of the body, downloaded and performed quality control the pertinent sequencing data from the sequence read archive (SRA) using methods from [@swamy_eye_2019] We constructed a transcriptome for each sample, and merged samples together to create `r toString(NUM_BODY_TISSUES + NUM_EYE_TISSUES)` tissue specific base transcriptomes. For each tissue-specific transcriptome, we removed transcripts that had an average expression less than 1 TPM. All tissue specific transcriptomes were merged to form a single unified gtf to ensure transcript identifiers were the same across tissues. We additionally merged all ocular tissue transcriptomes to generate a single pan-eye transcriptome
 
 
 ## Tissue specific transcriptome quantification
@@ -107,7 +106,7 @@ Protein coding novel loci were compared to the uniprot protein sequence data bas
 # Results 
 
 ## Long Read Pacbio RNA sequencing guides *de novo* transcriptome construction
-In order to determine the accuracy of short read transcriptome construction, we first generated PacBio long read RNA-seq data and illumina short read RNA-seq data from a stem cell derived RPE cell line. These cell lines are cultured using a highly optimized protocol, and thus shuold have minimal biological variation. We used this sequencing data to contruct a long read transcriptome and a short read transcirptome.  As long read sequencing capture full length trancripts, we hypothesize that it can serve as a ground truth for evaluating short read transcirptome methods as have others.<cite> When comparing the construction accuracy(methods) between the two builds, we see initally little concordance between the two builds. 
+In order to determine the accuracy of short read transcriptome construction, we first generated PacBio long read RNA-seq data and illumina short read RNA-seq data from a stem cell derived RPE cell line. These cell lines are cultured using a highly optimized protocol, and thus shuold have minimal biological variation. We used this sequencing data to contruct a long read transcriptome and a short read transcirptome.  As long read sequencing capture full length trancripts, we hypothesize that it can serve as a ground truth for evaluating short read transcirptome methods as have others.<cite> 
 
 ```{r fig.height=5, fig.width=8}
 sum_counts <- length_df_plotting %>% 
@@ -146,8 +145,8 @@ violin_plot/tpm_exp_plot +plot_annotation(tag_levels = 'A') + plot_layout(height
 Figure 1. Comparison of long read and short read fetal RPE transcriptomes. A) Intersection of transcript lengths between Pacbio(long read) and Stringtie(short read) transcriptomes. B) Short read contruction accuracy stratified by transcript length at different TPM based transcript exclusion thresholds.
 :::
 
-|     When examining the transcript lengths of each build we see that the two methods show very different transcript length distributions, with the short read build comprised mostly of smaller transcripts.(Fig1A) As the PacBio data was generted using two librarys for XXXBP and YYYBP, this is expected we expect to see enrichment for longer transcripts in the pacbio. To get a better sense of accuracy, we group transcripts by length, and compare accruacy between length group. This lead to XX% increase in accuracy, but still overall low accuracy. As there is clear inability within this  pacbio data to accurate determine transcripts below 2000BP, we cannot directly compare the accuracy for these smaller transcripts between the two builds.
-|     We experimented with various methods to remove spurious transcirpts to improve construction accuracy, and found that removing transcripts that were expressed below an average TPM threshold was the most effective(Fig1b)  We note that this achieves significanlty higher accuracy than using the default filtering scheme provided in stringtie, merge. In our downstream pipeline we use an average TPM of 1 as our filtering threshold, as this achiaeves XXX% accuracy in transcripts longer than 2000BP, as we reason that transcripts below 2000BP follow a simialr TPM distribution as those above.(this should probably be a supplimental figure )
+|     In out initial comparison between short and and long read transcriptomes, we see a low transcriptome contruction accuracy(methods) of `r toString(NUM_BASE_TXOME_CONST_ACC)` When examining the transcript lengths of each build we see that the two methods show very different transcript length distributions, with the short read build comprised mostly of smaller transcripts.(Fig1A) As the PacBio data was generted using two librarys for 2kbp and 3+kbp(need to double check this), we expected to see enrichment for longer transcripts in the pacbio. To get a better sense of accuracy, we group transcripts by length, and compare accruacy between length group. We found the accuracy significantly improves for transcripts longer than 2000BP, with construction accruacy `r toString(NUM_TXOME_CONST_ACC_2000_ABOVE)`, and `r toSting(NUM_TXOME_CONST_ACC_2000_BELOW)` for transcripts below 2000BP
+|     We experimented with various methods to remove spurious transcirpts to improve construction accuracy, and found that removing transcripts that were expressed below an average TPM threshold was the most effective(Fig1b). We note that this achieves significanlty higher accuracy than using the default filtering scheme provided in stringtie, merge. In our downstream pipeline we use an average TPM of 1 as our filtering threshold, as this achieves `r toString(NUM_FILT_TXOME_ACC_2000_ABOVE)` accuracy in transcripts longer than 2000BP
 
 ## A rigorous analysis pipeline finds thousands of novel gene isoforms
 
@@ -172,7 +171,7 @@ Table 1. Ocular sample dataset overview  and transcriptome size. Transcriptome s
 
 |       We built transcriptomes from `r toString(NUM_EYE_SAMPLES)` previously published, publicly available ocular tissue RNA-seq samples using an efficient snakemake pipeline.(sup fig 1) We include both adult and fetal tissue from the Cornea, Retina, Retinal Pigmented Epithelium (RPE) mined from `r toString(NUM_STUDIES)` different studies (Table 1). Our fetal tissues consist of both human fetal tissues and human induced pluripotent stem cell (iPSC) derived tissue, as stem cell dervied tissue has been show to closely resemble fetal tissue.<cite> To more accurately determine tissue specificity of novel ocular transcripts, we supplemented our ocular data set with `r toString(NUM_BODY_SAMPLES)` samples across `r toString(NUM_BODY_TISSUES)` body locations from the GTEx project and constructed transcriptomes for each of these body locations. We refer to each distinct body location as a subtissue here after.
 |               After initial construction of transcripts, we found over two million distinct transcripts across all our samples. After using the filtering methods desribed above, Our final transcriptome across all tissues contains `r toString(NUM_TOTAL_TX_BODY)` distinct transcripts with `r toString(NUM_REF_TX_BODY)` previously annotated and `r toString(NUM_NOVEL_TX_BODY)` novel transcripts, and incudes `r toString(NUM_TOTAL_NOVEL_SEQ/1000000)` megabases of previously unannotated genomic sequence. We define novel as any region of genomic sequence that ihas not been previously annotated within the Gencode, Ensembl and Refseq annotation databases. [-@frankish_gencode_2019],[-@zerbino_ensembl_2018],[-@oleary_reference_2016] 
-Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence. Novel isoforms are further classified by the novelty of its encoded protien, ie novel ORF, a novel isoform with a known ORF, and isofroms with no orf as noncoding isoforms. The number of distinct ORFs is significanlty less than the number of transcripts, with XXX previously annotated ORFs and YYY novel ORFs.
+Novel transcripts are split into two categories: novel isoforms, which are novel variations of known genes, and novel loci, which are previously unreported, entirely novel regions of transcribed sequence. Novel isoforms are further classified by the novelty of its encoded protein, ie novel ORF, a novel isoform with a known ORF, and isoforms with no orf as noncoding isoforms. The number of distinct ORFs is significanlty less than the number of transcripts, with `r toString(NUM_REF_ORF)` previously annotated ORFs and `r toString(NUM_NOVEL_PRF)`novel ORFs across all tissues.
 Across all tissues there is an average of XXX novel exons per tissue. We note that the total number of distinct ORF is much smaller than the    Cornea fetal tissue as the highest, where as XXX tissue has the lowest.
 
 ```{r}
@@ -277,7 +276,7 @@ isotype_per_tissue + loci + exon_type_tx_plot +plot_annotation(tag_levels = 'A')
 Figure 2. Overview of Novel Isoforms. A. Number of novel gene isoforms, grouped by transcript type. Brain and body represent an average of 13 and 34 distinct subtissues, respectively B. Novel protein coding and noncoding loci. Novel exon composition of novel isoforms, by isoform type labels indicate number of transcripts.
 :::
 
-|        Novel isoforms occur due to a novel arrangement of known exons or contain a novel exon. A novel arrangment of known exons presents as the ommission of one or more exons. Novel exons are either a modification of a known exon to generate a novel modified exon, or an addition of a previously unannotatedcryptic exon. For novel exons, we further annotated them with the putative biological process driving their inclusion: alternative splicing -> A3SS/A5SS , alternative promoter usage -> novel TES, or alternative polyadenylation -> Novel TES.
+|        Novel isoforms occur due to a novel arrangement of known exons or contain a novel exon. A novel arrangment of known exons presents as the ommission of one or more exons. Novel exons are either a modification of a known exon to generate a novel modified exon, or an addition of a previously unannotated cryptic exon. For novel exons, we further annotated them with the putative biological process driving their inclusion: alternative splicing for alterative splice sites, retained introns,  alternative promoter usage for the inclusion of novel first exons, or alternative polyadenylation for novel last exons.
 We found that the majority of novel exons with our dataset are novel first and last exons. We see that the majority of A5SS exons lead to novel protein coding isoforms, where as novel TES/TSS more often lead to noncoding isoforms. Retained introns mostly commonly lead to a novel isoform.
 
 ## *de novo* transcriptomes reduce overall transcriptome sizes
@@ -291,7 +290,7 @@ map_rate_diffs <- all_sample_mapping_rate_difference %>%
                                  TRUE ~ body_location),
          mapping_rate_diff = mapping_rate_diff * -1 ,
          mapping_rate_diff = replace(mapping_rate_diff, mapping_rate_diff <=0, 0),
-         pt = 'mapping_rate')
+         pt = 'mapping rate reduction')
 
 size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
   mutate(percent_txome_size_decrease = ( all_exp-filtered) / all_exp) %>%
@@ -303,13 +302,15 @@ size_reduction_df  <-  inner_join(gencode_tx_size, tx_counts) %>%
                                  TRUE ~ body_location)) %>% 
   group_by(body_location) %>%
   summarise(percent_txome_size_decrease = mean(percent_txome_size_decrease)) %>%
-  mutate(pt = 'txome rate')
+  mutate(pt = '% Base txome removed')
 
-
+cl<- novel_transcripts_per_tissue$color
+names(cl) <- novel_transcripts_per_tissue$body_location
 ggplot(map_rate_diffs) +
   geom_boxplot(aes(x = pt, y = mapping_rate_diff, fill = body_location))+
   geom_col( data = size_reduction_df, aes(x = pt, y=percent_txome_size_decrease, fill = body_location)) +
-  scale_fill_manual(values = color_list) +
+  scale_fill_manual(values = cl) +
+  xlab('')+
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
   facet_wrap(~body_location, ncol = 2) +
   ylab('fraction decrease')
@@ -320,12 +321,11 @@ ggplot(map_rate_diffs) +
 Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decrease. Any gain in mapping rate has been set to 0 for simiplicity
 :::
 
-|       Our transcriptomes removed on average of 80% of the a tissue's base transcriptome. We define base transcriptome for a tissues as any transcript with non zero TPM in at least one sample of a given tissue type. As this was a strikingly large reduction in transcriptome size, we wanted to ensure we were not unduly throwing away data.  We quantified transcript expression of our samples using the alignment-free quantification tool Salmon,quantifiying each sample twice: once using the gencode V27 human transcript annotation, and once using its associated tissue specific transcriptome We found that despite the 80% reduction in number of transcripts between the base gencode and denovo transcriptomes, there is only an average decrease of 6.4% in mapping rate, indicating that majority of gene expression data is perserved.  Across all tissues, only 60% of the gencode reference was recaptured indicating that much of the existing refernce may be redundant.
+|       Our transcriptomes removed on average of XXX% of the a tissue's base transcriptome. We define base transcriptome for a tissues as any transcript with non zero TPM in at least one sample of a given tissue type. As this was a strikingly large reduction in transcriptome size, we wanted to ensure we were not unduly throwing away data. We quantified transcript expression of our samples using the alignment-free quantification tool Salmon, quantifiying each sample twice: once using the gencode V27 human transcript annotation, and once using its associated tissue specific transcriptome We found that despite the 80% reduction in number of transcripts between the base gencode and denovo transcriptomes, there is only an average decrease of 6.4% in mapping rate, indicating that majority of gene expression data is preserved.  
 
 ## De novo transcriptomes identify of the tissue specific primary isoform expressed in a tissue
 
-|     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans. based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a simpler but higher resolution tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is more accurate ontology than APPRIS principal isoform.
-
+|     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans, based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is better reflects biology than APPRIS principal isoforms.
 
 ```{r, fig.width= 8}
 load('clean_data/rdata/novel_isoforms.Rdata')
@@ -351,7 +351,7 @@ ggplot(data = primary_isoforms_per_tissue, aes(x = body_location, y=count, fill 
 Figure 4. APPPRIS principal isoforms within the de novo transcriptome
 :::
 
-|    We found that XXX% of the APPRIS principal isoforms are also identified as the primary isoform in at least one tissue type, and that on average YYY% of transcripts per tissue. Within each tissue type, XXX% of transcripts were a previously annotated gencode transcript. Only ZZZ% of principal isoforms are novel isoforms. 
+|    We found that `r toString(NUM_APPRIS_RECOVERY_RATE)` of the APPRIS principal isoforms are also identified as the primary isoform in at least one tissue type. Within each tissue type, on average  `r toString(NUM_AVG_APPRIS)` % of are an appris primary isoform, `r toString(NUM_AVG_NONAPPRIS_GENCODE)`  of transcripts were a previously annotated gencode transcript, `r toString(NUM_AVG_NOVEL)` %  of principal isoforms are novel isoforms. 
 
 
 ## Novel Isoforms in Ocular tissues 
@@ -402,7 +402,7 @@ piu <- ggplot(data=plotting_piu_df, aes(x=stage, y=piu, fill=subtissue, color=su
 Figure 5. Analysis of novel isoform characteristics A. Set intersection of novel isoforms in ocular transcriptomes. B Boxplots of PIU  overlaid over PIU data points with estimated distribution of data set above each boxplot 
 :::
 
-|    Next, we analyzed the novel isoforms within our ocular transcriptomes. We compared the overlap in constructed novel isoforms across ocular tissues and found that XXX % of novel isoforms are specific to a singular ocular subtissue (fig 3a), but there are significant transcripts clusters for pan-eye and fetal-like tissues as well. For each novel isoform we then calculated percent isoform usage (PIU), or the fraction of total gene expression a transcript contributed to its parent gene. We found that on average  novel isoforms contribute to 15 % of their parent gene’s expression, although we see multiple novel isoforms that are the primary isoform for their parent gene.
+|    Next, we analyzed the novel isoforms within our ocular transcriptomes. We compared the overlap in constructed novel isoforms across ocular tissues and found that XXX % of novel isoforms are specific to a singular ocular subtissue (fig 3a), but there are significant transcripts clusters for pan-eye and fetal-like tissues as well. For each novel isoform we then calculated percent isoform usage (PIU), or the fraction of total gene expression a transcript contributed to its parent gene. We found that on average novel isoforms contribute to 15 % of their parent gene’s expression, although we see multiple novel isoforms that are the primary isoform for their parent gene.
 
 ## Novel Loci in the ocular transcriptome
 
@@ -456,17 +456,17 @@ The prediction of SNP's consequence is a fundamental step in variant prioritzati
 ```{r fig.width=16, fig.height=12}
 load('/data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_results.Rdata')
 
-n=15
-vep_exp_all_eye <- vep_impact_matrix %>% 
-  filter(rowSums(.[,eye_tissues] == 3) ==6, one_count>=n)
-vep_no_eye <- vep_impact_matrix %>% 
-  filter(rowSums(.[,eye_tissues] == 1) <=2,  three_count >=n/2, two_count >=3) 
+n=10
+vep_exp_all_eye <- filter(vep_impact_matrix, allele_id %in% clinvar_vus_eye$allele_id) %>%
+    filter(rowSums(.[,eye_tissues] == 3) ==6, one_count>=n)
+vep_no_eye <- filter(vep_impact_matrix, allele_id %in% clinvar_vus_eye$allele_id) %>% 
+    filter(rowSums(.[,eye_tissues] == 1) <=2,  three_count >=1, two_count >=1) 
 
 
 
 vep_example <- bind_rows( vep_exp_all_eye %>% arrange(desc(var))%>% .[1:n,] %>% select(allele_id, eye_tissues, everything()),
-                          vep_no_eye %>% arrange(desc(var)) %>% .[1:n,] %>% select(allele_id, eye_tissues, everything()) ,
-)
+                 vep_no_eye %>% arrange(desc(var)) %>% .[1:n,] %>% select(allele_id, eye_tissues, everything()) ,
+                 )
 
 plot_df <- filter(vep_by_tissue) %>% filter(allele_id %in% vep_example$allele_id) %>%
   mutate(avg_exp = log2(max_impact_avg_exp+1), med_exp = log2(max_impact_med_exp + 1),
@@ -488,10 +488,10 @@ ggplot(plot_df, aes(x =allele_id, y=subtissue))+
 ```
 
 ::: {custom-style="CustomCaption"}
-Figure 7. Tissue specific variant prioritization dot plot. Size corresponds to average TPM and collor to impact. A full mapping of variant descriptors to impact can be found in supplemental data
+Figure 7. Tissue specific variant prioritization of variants associated with ocular disease. Size corresponds to average TPM and color to impact. A full mapping of variant descriptors to impact can be found in supplemental data
 :::
 
-Using our tissue specific transcriptome we reclassifed XXX variants, and found that the highest priority of XXX decreased, and YYYY increased. We see a large decrease in predicted effect as the transcript which previously lead to an effect is not expressed in a respective tissue. In addition, we find ZZZ variants that map to novel regions, and find CCC tissues specfic variants. 
+Using our tissue specific transcriptome we reclassifed XXX variants, and found that the highest priority of XXX decreased, and YYYY increased. We see a large decrease in predicted effect as the transcript which previously lead to an effect is not expressed in a respective tissue. In addition, we find ZZZ variants that map to novel regions, and find CCC tissues specfic variants. Look at variant VVV, which is associated with disease, XXX and has high priority in eye tissues, and low prioity in other tisues.
 
 
 ## A companion visualization tool enables easy use of *de novo* transcriptomes 
@@ -519,33 +519,30 @@ Finally, we package all tools used for out transcriptome pipeline within a porta
 
 # Discussion
 
-|       Motivated by the lack of a comprehensive pan eye transcriptome and so we created the first comprehensive set of ocular transcriptomes.
+Motivated by the lack of a comprehensive pan eye transcriptome we created the first comprehensive set of ocular transcriptomes.
+By using long read RNA-sequencing data to calibrate our short-read construction pipeline, we are confident we created real, biologically relevant transcriptomes. We found that concordance between long and short read based transcriptome is directly related to transcript expression. However, we saw a clear inability within this  pacbio data to accurately detect transcripts shorter than 2000Bp. As many of the transcripts constructed using short reads are below this threshold, long read sequencing data enriched for smaller transcript sizes would provide greater insight in future studies.
 
-By using long read RNA-sequencing data to calibrate our short-read construction pipeline, we are confident we created real, biologically relevant transcriptomes.  
-
-By calibrating our short read constrution pipeline with long read data, our transcriptomes are more accurate than previous work. 
 We used a large dataset compiled from published RNA-seq data to build these transcriptomes, an approach which has several key advantages. First, our large sample size allows us to combat the noisy nature of RNA-seq data. More importantly, because we only keep transcripts detected in samples from multiple studies with multiple types of sample preparation, we can be more confident that our transcriptomes accurately reflect the biology of its originating subtissue and are not an artifact due to preparation of the samples.
-We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
-We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data, likely indicating that our constructed transcripts are not an artifact of the construction algorithm. These smaller transcriptomes create a significantly lower dimesional space for researchers to explore.
-In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that   it is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction. We find that within the ocular transcriptome, novel isoforms do not lead to a change in the encoded protein product and lie within the untranslated region of the gene. It is difficult to identify the exact role of these novel exons, but others have shown that the untranslated regions of transcripts contain multiple types of regulatory elements.
-We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
-In the future, we aim to provide a more refined ocular transcriptome by using long read RNA-seq data from ocular tissues. Long read RNA-seq captures entire RNA transcripts and thus removes ambiguity due to short read noise or algorithmic construction and will provide a more accurate characterization of the pan eye transcriptome.
 
-We used a large dataset compiled from published RNA-seq data to build these transcriptomes, an approach which has several key advantages. First, our large sample size allows us to combat the noisy nature of RNA-seq data. More importantly as our samples originate from multiple studies with multiple types of sample preparation, we can be more confident that our transcriptomes accurately reflect the biology of its originating subtissue and are not an artifact due to preparation of the samples. 
-
-|       We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data. This reduction in total transcriptome sizes is useful for other researchers as it creates a smaller search space to explore, ie its easier to compare 30000 tx vs 300000; This large reduction in transcriptome size highlights the  drawback of one size fits all annotations
-
-In almost all tissues we see more noncoding novel isoforms than coding. Biologically some of these may be pseudo genes or noncoding. However as all/most of our data was prepared with polyA selection, we likely are not capturing cannonical lincRNA/ncRNA which do not have polyA tails. These transcripts fall under the processed_transcript catagory by the gencode annotation which is a very vague catagory so its difficuly to predict their function. Many of these have alternaive FEs so might be unders a different regulatory program
-
-we see many novel first exons, novel first exons alterantive promoter usage. Different promoter might be different regulatory pathways 
-
+We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data. This reduction in total transcriptome sizes is useful for other researchers as it creates a smaller search space to explore, ie its easier to compare 30000 tx vs 300000; This large reduction in transcriptome size highlights the drawback of one size fits all annotations
+Only recover XXX% of gencode annotation, likely indicating reduncy of transcripts in the annotation.  In almost all tissues we see more noncoding novel isoforms than coding. Biologically some of these may be pseudo genes or noncoding. However as all/most of our data was prepared with polyA selection, we likely are not capturing cannonical lincRNA/ncRNA which do not have polyA tails. These transcripts fall under the processed_transcript catagory by the gencode annotation which is a very vague catagory so its difficuly to predict their function. Many of these have alternaive FEs so might be unders a different regulatory program
 
 Though we identified many novel ORF's its difficult to say whether these are actually protein coding. We see that many of the novel ORF's are novel because of retained introns. These retained intron transcirpt may simply be unspliced mRNA. Studies have shown that some neuronal cell types stockpile unspliced transcripts for generating rapid changes in gene expression, and so we may be capturing a simiar phenomenon here. However we are confident that we are capturring true novel protein isoforms. We find a lot, but no where near the upper limit sugessted by <cite>
 
-|      We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
+We observed that in the set of novel exons within our transcriptome, the vast majority are novel first and last exons. It is difficult to directly tell what the biological relevance of these might be. There are multiple studies examining the roles of alternative first and last exons, with first exons arising because of alternative promoter usage, and last exons by alternative polyadenylation. [-@demircioglu_pan-cancer_2019],[-@mitra_alternative_2018] These studies have highlighted the distinct biological role these phenomena play. However, other studies have shown that many of these differences in start sites are largely nonfunctional and lack biological significance.[-@xu_evidence_2019]. Previous research devoted to studying splicing vastly outnumbers other research on other RNA processing types, yet we show that isoforms generated by these mechanisms are equally abundant, and thus merit more study. 
+Something about the reliability of determining novel 5' ends and 3' ends from RNA-seq/de novo transcriptomes.
+
+We show that across all tissue types, the number of constructed transcripts is dramatically less than the number of transcripts present in the Gencode reference annotation.(Table 1; Figure 1a) Despite the large reduction in number of transcripts in the annotation, we see little loss in gene expression data, likely indicating that our constructed transcripts are not an artifact of the construction algorithm. These smaller transcriptomes create a significantly lower dimesional space for researchers to explore.
+
+In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent. However, it is difficult to say if these are non-functional. Its is entirely possible that these isoforms are from cell types that   it is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction. We find that within the ocular transcriptome, novel isoforms do not lead to a change in the encoded protein product and lie within the untranslated region of the gene. It is difficult to identify the exact role of these novel exons, but others have shown that the untranslated regions of transcripts contain multiple types of regulatory elements.
+
+We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
+
+
+
+
+Something about APPRIS/primary isoforms
       
-|      In our ocular transcriptomes, we see that novel isoforms are largely subtissue-specific. This matches previously reported findings about the tissue specificity of rare exons and first and last exons. We also find that on average novel isoforms represent about 15% of their parent.While this seems fairly low, it is difficult to say these are non-functional. Its is entirely possible that these isoforms are from low population cell types. This especially makes sense in the retina, bipolar/amacrine cell types comprise ~15% of the total cell population.  
-It is likely that some of the lower expressed novel isoforms were removed during the filtering step of transcriptome construction.
 
 Our tissue specific variant prioitzation is useful for precision medicine applications, 
 
@@ -554,15 +551,11 @@ novel loci found some, some are interseting, some are not.
 
 
 
-
-|       We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. The  work we have is more of creating a an ideal starting point for others to explroe in and many studies simply publish data and dont do anything with it, and so we want to make it easy for others to use, both with our app and containerized pipeline. 
       
-      
-As with any purely computational study, results must be taken with a grain of salt. 
 
 # Notes
 - Correlation between transcript length and expression?
 - bench marking transdecoder on gencode txome.
-
+- comparison of cage to non cage
 
 # References
