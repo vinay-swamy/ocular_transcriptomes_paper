@@ -342,24 +342,34 @@ Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decre
 |     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans. based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most biologically functionaly isoforms of transcripts  We instead propose a simpler but higher resolution tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is more accurate ontology than APPRIS principal isoform.
 
 
-```{r, fig.width= 5}
+```{r, fig.width= 6}
 load('clean_data/rdata/novel_isoforms.Rdata')
-primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>% 
-  mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('dntx', 'gencode', 'appris'))) %>% 
+primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
+  mutate(primary_isoform_origin = gsub('dntx','DNTx', primary_isoform_origin),
+         primary_isoform_origin = gsub('gencode', 'GENCODE', primary_isoform_origin),
+         primary_isoform_origin = gsub('appris', 'APPRIS', primary_isoform_origin)) %>% 
+  mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('DNTx', 'GENCODE', 'APPRIS'))) %>% 
   inner_join(subtissue_to_bodyloc) %>%
   filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
   mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-         body_location=case_when(body_location == 'Body' ~ 'Body (mean)',
-                                 body_location == 'Brain'~ 'Brain (mean)' ,
+         body_location_pretty=case_when(body_location == 'Body' ~ 'Body(mean)',
+                                 body_location == 'Brain'~ 'Brain(mean)' ,
                                  TRUE ~ body_location)) %>% 
-  group_by(body_location, primary_isoform_origin) %>%
+    mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
+                body_location_pretty=gsub('avg','mean', body_location_pretty),
+                body_location_pretty=gsub('Tissue','', body_location_pretty),
+                body_location_pretty=gsub('\\(',' (', body_location_pretty),
+                body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
+                body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
+  group_by(body_location_pretty, primary_isoform_origin) %>%
   summarise(count = mean(count)) %>% 
   arrange()
-ggplot(data = primary_isoforms_per_tissue, aes(x = body_location, y=count, fill = primary_isoform_origin))+
+ggplot(data = primary_isoforms_per_tissue, aes(x = body_location_pretty, y=count, fill = primary_isoform_origin))+
   geom_bar(position = 'fill', stat = 'identity')+
   geom_text(aes(label = as.integer(count) ), position = position_fill(vjust=.5)) +
+  cowplot::theme_cowplot() +
   theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
-  scale_color_brewer(palette = 'Set1')
+  scale_fill_brewer(palette = 'Set1', name = 'Origin') + ylab('Ratio') + xlab('')
 
 ```
 
