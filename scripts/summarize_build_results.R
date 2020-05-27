@@ -8,8 +8,9 @@ library(argparse)
 parser <- ArgumentParser()
 parser$add_argument('--workingDir', action='store', dest='working_dir')
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
-parser$add_argument('--fileYaml', action = 'store', dest = 'file_yaml')
-parser$add_argument('--rawCDStrack', action = store, dest = 'CDS_track_file')
+parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
+parser$add_argument('--distinctCDStrack', action = 'store', dest = 'distinct_CDS_track_file')
+parser$add_argument('--compCDStrack', action = 'store', dest = 'comp_CDS_track_file')
 list2env(parser$parse_args(), .GlobalEnv)
 
 ####
@@ -58,17 +59,28 @@ novel_transcripts_per_tissue <- lapply(subtissues, function(x)
 #----
 #count the number of novel ORFs 
 #----
-cds_track_tab <- fread(CDS_track_file, sep = '\t', header = F) %>% as_tibble %>% 
+## NOTE: I'm considering a  CDS  as annotated if it exists already exists in the gencode annotation, OR 
+## if its a unannotated CDS associated with annotated transcript
+
+dntx_cds_track_tab <- fread(comp_CDS_track_file, sep = '\t', header = F) %>% as_tibble %>% 
     mutate(cds_id = str_split(V3, '\\|') %>% sapply(function(x) x[2]), 
            transcript_id = str_split(V5, '\\|') %>% sapply(function(x)x[2])) %>% 
     select(cds_id, transcript_id)
-ref_cds_ids <- tcons2mstrg %>% 
-    inner_join(cds_track_tab) %>% 
+
+ref_CDS_ids_enst <- fread(distinct_CDS_track_file, sep = '\t', header = F) %>% as_tibble %>% 
+    filter(V6!='-') %>% pull(V1) %>% unique()
+
+
+ref_cds_ids_dntx <- tcons2mstrg %>% 
+    inner_join(dntx_cds_track_tab) %>% 
     filter(!is.na(cds_id), class_code == '=') %>%
     pull(cds_id) %>% 
     unique()
+all_annotaed_cdsid = c(ref_cds_ids_dntx, ref_CDS_ids_enst) %>% unique
+cds_origin_df <- dntx_cds_track_tab %>% mutate(is_annotaed_cds = cds_id%in% all_annotaed_cdsid)
+fwrite(cds_origin_df, file = files$CDS_origin_df, sep = '\t')
 
-transcripts_with_novel_cds <- filter(cds_track_tab, !cds_id %in% ref_cds_ids) %>% pull(transcript_id)
+transcripts_with_novel_cds <- filter(dntx_cds_track_tab, !cds_id %in% all_annotaed_cdsid) %>% pull(transcript_id)
 tcons2mstrg <- tcons2mstrg %>% mutate(has_novel_orf = (transcript_id %in% transcripts_with_novel_cds ) & transcript_type =='protein_coding' )
 novel_orfs_per_tissue <- lapply(subtissues, function(x) 
     tcons2mstrg %>% filter(!class_code %in% c('=', 'u')) %>%
@@ -193,7 +205,7 @@ novel_exon_annotation <- gtf %>%
     select(seqid, strand, start,end, transcript_id) %>% 
     distinct %>% 
     inner_join(tcons2mstrg %>% select(transcript_id,has_novel_orf, transcript_type)) %>% 
-    left_join(cds_track_tab) %>% 
+    left_join(dntx_cds_track_tab) %>% 
     inner_join(novel_exons_TSES) %>% 
     left_join(exon_locations %>% select(seqid, strand, start, end, transcript_id, exon_location)) %>% 
     select(transcript_id, nv_exon_id = id, cds_id, has_novel_orf,transcript_type, exon_location, nv_type_rc ) %>% 
