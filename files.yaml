@@ -20,5 +20,8 @@ novel_isoform_analysis_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_da
 gencode_quant: /data/swamyvs/ocular_transcriptomes_pipeline/data/rdata/gencode_quant.Rdata
 sup_fig_data: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/sup_figs.Rdata
 clinvar_summary: /data/swamyvs/ocular_transcriptomes_pipeline/ref/clinvar_variant_summary.txt.gz
-all_variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_all_alleles.Rdata
-example_variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_eye_example.Rdata
+variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/vep_results.Rdata
+long_read_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/longread_summary.Rdata
+dntx_quant_path: /data/swamyvs/ocular_transcriptomes_pipeline/data/salmon_quant/
+CDS_origin_df: /data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS2txid.tsv
+
