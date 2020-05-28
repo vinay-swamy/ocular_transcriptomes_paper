@@ -24,4 +24,4 @@ variant_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdat
 long_read_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/longread_summary.Rdata
 dntx_quant_path: /data/swamyvs/ocular_transcriptomes_pipeline/data/salmon_quant/
 CDS_origin_df: /data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS2txid.tsv
-
+VEP_dir: /data/swamyvs/ocular_transcriptomes_pipeline/data/vep/

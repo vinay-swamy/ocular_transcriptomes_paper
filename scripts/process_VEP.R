@@ -5,20 +5,6 @@ library(argparse)
 library(yaml)
 library(RBedtools)
 
-read_VEP <- function(file, tissue){
-    fread(file, sep = '\t', skip = '##') %>% 
-        as_tibble %>% rename(allele_id = `#Uploaded_variation`) %>% 
-        filter(allele_id %in% VUS_ids) %>% 
-        select(allele_id,Feature,Consequence, Extra) %>% 
-        mutate(IMPACT = str_split(Extra, '=|;') %>% sapply(function(x) x[2]),
-               Consequence= str_split(Consequence, ',')) %>% 
-        unnest(Consequence) %>% 
-        inner_join(clinsig_rank) %>% 
-        select(allele_id,impact_code) %>% 
-        distinct %>% 
-        group_by(allele_id) %>% #select the max variant for each allele:transcript pair 
-        summarise(!!tissue := max(impact_code))
-}
 parser <- ArgumentParser()
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--fileYaml', action = 'store', dest = 'file_yaml')
@@ -32,11 +18,10 @@ files <- read_yaml(files_yaml)
 setwd(data_dir)
 
 
-clinvar_anno <- fread('ref/clinvar_variant_summary.txt.gz', sep = '\t') %>% 
+clinvar_anno <- fread(files$clinvar_summary, sep = '\t') %>% 
     as_tibble %>% rename(allele_id = `#AlleleID`) 
-clinvar_vus <-  clinvar_anno %>% filter(ClinicalSignificance == "Uncertain significance")
 
-clinvar_vus_eye <- clinvar_vus %>% filter(grepl('macula|retin|leber|cone|rod|cornea|bardet|ocular|optic', PhenotypeList))
+clinvar_vus_eye <- clinvar_vus %>% filter(grepl('macula|retin|leber|cone|cornea|bardet|ocular|optic|ocular|joubert', PhenotypeList))
 
 VUS_ids <-clinvar_vus  %>% pull(allele_id) %>% unique
 clinsig_rank <- tibble(IMPACT = c('HIGH', 'MODERATE', 'LOW', "MODIFIER")) %>%  
@@ -44,29 +29,36 @@ clinsig_rank <- tibble(IMPACT = c('HIGH', 'MODERATE', 'LOW', "MODIFIER")) %>%
                                     IMPACT == 'MODERATE' ~2, 
                                     TRUE ~ 1) )
 
-sample_table <- read_tsv('sampleTableFullV3.tsv')
+sample_table <- read_tsv(files$sample_table)
 subtissues <- unique(sample_table$subtissue)
 
-load('old_data/data/all_tissue_quant.Rdata')
+load(files$all_tissue_quant)
+load(files$gencode_quant)
+gencode_quant[is.na(gencode_quant)] <- 0
+all_quant[is.na(all_quant)] <- 0
+
 sample_table <- sample_table %>% filter(sample %in% colnames(all_quant))
-avg_tissue_tpm <- lapply(subtissues, function(x) filter(sample_table, subtissue == x) %>% 
-                             pull(sample) %>% 
-                             {select(all_quant, transcript_id, .)} %>% 
-                             filter(!is.na(.[,2])) %>% 
-                             mutate(avg_exp := rowMeans(.[,-1])) %>% 
-                             select(transcript_id, avg_exp)
-)
-median_tissue_tpm <- lapply(subtissues, function(x) filter(sample_table, subtissue == x) %>% 
-                                pull(sample) %>% 
-                                {select(all_quant, transcript_id, .)} %>% 
-                                filter(!is.na(.[,2])) %>% 
-                                mutate(med_exp := rowMedians(.[,-1] %>% as.matrix)) %>% 
-                                select(transcript_id, med_exp)
-)
 
-names(avg_tissue_tpm) <-names(median_tissue_tpm) <-  subtissues
+make_tissue_level_quant <- function(quant, sum_type, col_name){
+    res <- lapply(subtissues, function(x) filter(sample_table, subtissue == x) %>% 
+               pull(sample) %>% 
+               {select(quant, transcript_id, .)} %>% 
+               filter(!is.na(.[,2])) %>% 
+               mutate(!!col_name := get(sum_type)(as.matrix(.[,-1]) )) %>% 
+               select(transcript_id, !!col_name)
+    )
+    names(res) <- subtissues
+    return(res)
+}
 
-read_VEP <- function(file, tissue){
+
+avg_dntx_tissue_tpm <-make_tissue_level_quant(all_quant, 'rowMeans', 'avg_exp')
+med_dntx_tissue_tpm <- make_tissue_level_quant(all_quant, 'rowMedians', 'med_exp')
+avg_gencode_tissue_tpm <- make_tissue_level_quant(gencode_quant, 'rowMeans', 'avg_exp')
+med_gencode_tissue_tpm <- make_tissue_level_quant(gencode_quant, 'rowMedians', 'med_exp')
+
+
+read_VEP <- function(file, tissue, c_med_t_tpm, c_avg_t_tpm){
     fread(file, sep = '\t', skip = '##') %>% 
         as_tibble %>% rename(allele_id = `#Uploaded_variation`) %>% 
         filter(allele_id %in% VUS_ids) %>% 
@@ -75,8 +67,8 @@ read_VEP <- function(file, tissue){
                Consequence= str_split(Consequence, ',')) %>% 
         unnest(Consequence) %>% 
         inner_join(clinsig_rank) %>% 
-        left_join(median_tissue_tpm[[tissue]]) %>% 
-        left_join(avg_tissue_tpm[[tissue]]) %>%
+        left_join(c_med_t_tpm[[tissue]]) %>% 
+        left_join(c_avg_t_tpm[[tissue]]) %>%
         select(allele_id,impact_code, avg_exp, med_exp) %>% 
         distinct %>% 
         group_by(allele_id) %>% #select the max variant for each allele:transcript pair 
@@ -87,12 +79,29 @@ read_VEP <- function(file, tissue){
     
 }
 
-vep_files <- paste0('old_data/data/vep/', subtissues,'/variant_summary.txt')
+vep_files <- paste0(files$VEP_dir, subtissues,'/variant_summary.txt')
 all(file.exists(vep_files))
-vep_by_tissue <- lapply(seq_along(subtissues), function(i)read_VEP(vep_files[i], subtissues[i])) %>% bind_rows
-apply(vep_by_tissue[,-1], 2, function(x) sum(is.na(x)))
+dntx_vep_by_tissue <- lapply(seq_along(subtissues), function(i)read_VEP(vep_files[i], subtissues[i],med_dntx_tissue_tpm, avg_dntx_tissue_tpm )) %>%
+    bind_rows
+gencode_vep_file <- paste0(files$VEP_dir, 'gencode/variant_summary.txt')
+#slow but i lazy
+gencode_vep_by_tissue <- lapply(seq_along(subtissues), function(i)read_VEP(gencode_vep_file, subtissues[i],med_gencode_tissue_tpm, avg_gencode_tissue_tpm )) %>%
+    bind_rows
 
-vep_impact_matrix <- vep_by_tissue %>% 
+
+dntx_global_impacts <- dntx_vep_by_tissue %>% 
+    group_by(allele_id) %>% 
+    summarise(g_max_impact = max(max_impact), 
+              g_min_impact = min(max_impact))
+
+
+gencode_global_impacts <- gencode_vep_by_tissue %>% 
+    select(allele_id, gencode_impact=max_impact) %>% distinct 
+impact_diff <- inner_join(dntx_global_impacts, gencode_global_impacts) %>% 
+    mutate(max_diff = g_max_impact - gencode_impact, min_diff = gencode_impact - g_min_impact )
+
+
+dntx_vep_impact_matrix <- dntx_vep_by_tissue %>% 
     select(allele_id, subtissue, max_impact) %>% 
     spread(key = subtissue, value = max_impact) %>% 
     mutate(one_count = rowSums(.[,subtissues] == 1), 
@@ -102,6 +111,5 @@ vep_impact_matrix <- vep_by_tissue %>%
     arrange(desc(var))
 
 vep_impact_matrix[is.na(vep_impact_matrix)] <- 1
-eye_tissues <- c("RPE_Fetal.Tissue",  "Retina_Adult.Tissue",  "RPE_Adult.Tissue", "Cornea_Adult.Tissue", "Cornea_Fetal.Tissue", "Retina_Fetal.Tissue")
-body_tissues <- filter(sample_table, !subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
-save(vep_impact_matrix, vep_by_tissue,clinvar_vus_eye, file = files$variant_results_rdata)
+
+save(dntx_vep_impact_matrix, dntx_vep_by_tissue,gencode_vep_by_tissue, impact_diff, clinvar_vus_eye, file = files$variant_results_rdata)
