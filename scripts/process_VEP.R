@@ -7,7 +7,7 @@ library(RBedtools)
 
 parser <- ArgumentParser()
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
-parser$add_argument('--fileYaml', action = 'store', dest = 'file_yaml')
+parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 ####
 # data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
 # files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
@@ -20,7 +20,7 @@ setwd(data_dir)
 
 clinvar_anno <- fread(files$clinvar_summary, sep = '\t') %>% 
     as_tibble %>% rename(allele_id = `#AlleleID`) 
-
+clinvar_vus <- clinvar_anno %>% filter(ClinicalSignificance == "Uncertain significance")
 clinvar_vus_eye <- clinvar_vus %>% filter(grepl('macula|retin|leber|cone|cornea|bardet|ocular|optic|ocular|joubert', PhenotypeList))
 
 VUS_ids <-clinvar_vus  %>% pull(allele_id) %>% unique
@@ -109,7 +109,7 @@ dntx_vep_impact_matrix <- dntx_vep_by_tissue %>%
            three_count = rowSums(.[,subtissues] == 3),
            var = rowVars(as.matrix(.[,subtissues]) ) )%>% 
     arrange(desc(var))
-
-vep_impact_matrix[is.na(vep_impact_matrix)] <- 1
+save.image('testing/pvep.Rdata')
+dntx_vep_impact_matrix[is.na(dntx_vep_impact_matrix)] <- 1
 
 save(dntx_vep_impact_matrix, dntx_vep_by_tissue,gencode_vep_by_tissue, impact_diff, clinvar_vus_eye, file = files$variant_results_rdata)

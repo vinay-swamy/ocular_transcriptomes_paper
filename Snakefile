@@ -122,22 +122,6 @@ rule summarize_long_read_results:
             --cleanedData {output}
         '''
 
-rule paper_numbers_and_sup_figs:
-    input:
-        pan_eye_gtf = files['pan_eye_gtf'],
-        all_tissue_gtf=files['anno_gtf'],
-        DNTX_mr= files['DNTX_mr'],
-        gencode_mr= files['gencode_mr']
-    output: 
-        clean_data = files['paper_numbers_rdata']
-    shell:
-        '''
-        module load {R_version}
-        Rscript scripts/paper_numbers_sup_figs.R \
-            --workingDir {working_dir} \
-            --dataDir {data_dir} \
-            --filesYaml {files_yaml}
-        '''
 
 
 rule novel_isoforms_ocular_tissues:
@@ -167,7 +151,7 @@ rule process_VEP:
         module load {R_version}
         Rscript scripts/process_VEP.R \
         --dataDir {data_dir} \
-        --fileYaml {files_yaml}  
+        --filesYaml {files_yaml}  
         '''
 
 
@@ -191,6 +175,25 @@ run this to start
 tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.Tissue/SRS897012/quant.sf | grep Retina_Fetal.tissue - | cut -f1 > clean_data/salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab
 
 '''
+
+rule paper_numbers_and_sup_figs:
+    input:
+        pan_eye_gtf = files['pan_eye_gtf'],
+        all_tissue_gtf=files['anno_gtf'],
+        DNTX_mr= files['DNTX_mr'],
+        gencode_mr= files['gencode_mr'],
+        example_variant_results = files['variant_results_rdata']
+    output: 
+        clean_data = files['paper_numbers_rdata']
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/paper_numbers_sup_figs.R \
+            --workingDir {working_dir} \
+            --dataDir {data_dir} \
+            --filesYaml {files_yaml}
+        '''
+
 
 
 rule knit_notebooks:
