@@ -4,7 +4,7 @@ author: 'Vinay S Swamy, Temesgen D Fufa, Robert B Hufnagel, David M McGaughey'
 bibliography: 'ocular_txome_citations.bib'
 csl: 'nucleic-acids-research.csl'
 output:
-  word_document: 
+  redoc::redoc: 
     reference_docx: reference_doc_v1.docx  
     keep_md: yes
   html_document:
@@ -16,10 +16,10 @@ output:
 ```{r setup, include=FALSE,echo=FALSE, cache = FALSE}
 require("knitr")
 ## setting working directory
-root = '/Users/mcgaugheyd/git/ocular_transcriptomes_paper/'
+#root = '/Users/mcgaugheyd/git/ocular_transcriptomes_paper/'
 #opts_knit$set(root.dir = "~/git/ocular_transcriptomes_paper/")
 #opts_knit$set(root.dir = root)
-opts_knit$set(roo.dor = '/data/swamyvs/ocular_transcriptomes_paper/')
+opts_knit$set(root.dir = '/data/swamyvs/ocular_transcriptomes_paper/')
 ```
 
 
@@ -61,14 +61,14 @@ body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(sub
 
 |        The transcriptome is defined as the set of distinct RNA transcripts expressed in a population of identical cells. During transcription several RNA processing steps modify immature RNA and drive the formation of multiple, distinct gene isoforms. For example the human Gencode release 28 contains 97,713 protein conding transcripts across 20,306 genes. This processing includes alternative promoter usage, alternative splicing, and alternative polyadenylation. The full biological impact of gene isoforms has not been fully elucidated, but multiple studies have shown that gene isoforms can have distinct and critical biological functions  [CITE SOMETHINGS].
   
-|        RNA-seq has been used as a powerful tool for complicated task of detecting of novel gene isoforms. Early methods using RNA-seq to detect gene isoforms focused  investigating the single? RNA processing mechanism and determining what gene isoforms it was driving. For example, the computational tool rMATS detects novel gene isoforms by analyzing splicing patterns using RNA-seq [-@shen_rmats_2014].[MENTION OTHER METHODS]More recently, researchers have adapted methods from genome assembly to use RNA-seq to reconstruct the whole transcriptome of a biological samples, dubbed de novo transcriptome construction [-@haas_novo_2013].
+|        RNA-seq has been used as a powerful tool for complicated task of detecting of novel gene isoforms. Early methods using RNA-seq to detect gene isoforms focused  investigating the single? RNA processing mechanism and determining what gene isoforms it was driving. For example, the computational tool rMATS detects novel gene isoforms by analyzing splicing patterns using RNA-seq [-@shen_rmats_2014].[MENTION OTHER METHODS]More recently, researchers have adapted methods from genome assembly to use RNA-seq to reconstruct the whole transcriptome of a biological samples, dubbed *de novo* transcriptome construction [-@haas_novo_2013].
         
-|        De novo transcriptome construction uses short (~100bp) RNA-seq reads to reconstruct full-length mRNA transcripts. This is a particularly useful method because it is independent of any RNA processing mechanism. A major shortcoming of this method is that a large number of samples are required to combat the noisy nature of RNA-seq data, but because of the increasingly inexpensive sequencing, data sets of the necessary size are now available. The most comprehensive de novo transcriptome project to date has been CHESS, which used the GTEx dataset to construct de novo transcriptomes in over 9000 RNA-seq samples from 49 distinct location of the body to create a comprehensive annotation of mRNA transcripts across the human body. [-@pertea_stringtie_2015],[-@gtex_consortium_genetic_2017],[-@pertea_chess_2018] However, as the GTEx dataset lacks any ocular tissues, the CHESS database is an incomplete annotation of the human transcriptome.
+|        *de novo* transcriptome construction uses short (~100bp) RNA-seq reads to reconstruct full-length mRNA transcripts. This is a particularly useful method because it is independent of any RNA processing mechanism. A major shortcoming of this method is that a large number of samples are required to combat the noisy nature of RNA-seq data, but because of the increasingly inexpensive sequencing, data sets of the necessary size are now available. The most comprehensive *de novo* transcriptome project to date has been CHESS, which used the GTEx dataset to construct *de novo* transcriptomes in over 9000 RNA-seq samples from 49 distinct location of the body to create a comprehensive annotation of mRNA transcripts across the human body. [-@pertea_stringtie_2015],[-@gtex_consortium_genetic_2017],[-@pertea_chess_2018] However, as the GTEx dataset lacks any ocular tissues, the CHESS database is an incomplete annotation of the human transcriptome.
 
-|        A shortcoming of short read based de novo transcriptomes is the inability to evaluate the accuracy of construction methods <- This should be rewritten to something more like “short read de novo transcriptome assemblies precision and sensitivity has not been fully addressed”. Long read sequencing technologies provide a potential solution to this problem as long read sequencing can capture full length transcripts and thus can be used to identify a fuller range of gene isoforms diversity. While long reads have historicaly been considered inaccurate, the new PacBio Sequel II system sequences long reads as accurately as short read based seqencing [CITATION]. We propose that long read based transcriptomes can serve as a ground truth for evaluating short-read base transcriptomes, and in this study we use PacBio long read RNA sequencing to inform the construction of short read transcriptomes. We generated PacBio long read RNA seq data from a stem cell derived retinal pigmented epithelium (RPE) cell line along with matched Illumina short read RNA-seq. Using the two sources of RNA-seq data we design a rigorous de novo transcriptome pipeline that maximizes the conordance between short and long read de novo transcriptomes.
+|        A shortcoming of short read based *de novo* transcriptomes is the inability to evaluate the accuracy of construction methods <- This should be rewritten to something more like “short read *de novo* transcriptome assemblies precision and sensitivity has not been fully addressed”. Long read sequencing technologies provide a potential solution to this problem as long read sequencing can capture full length transcripts and thus can be used to identify a fuller range of gene isoforms diversity. While long reads have historicaly been considered inaccurate, the new PacBio Sequel II system sequences long reads as accurately as short read based seqencing [CITATION]. We propose that long read based transcriptomes can serve as a ground truth for evaluating short-read base transcriptomes, and in this study we use PacBio long read RNA sequencing to inform the construction of short read transcriptomes. We generated PacBio long read RNA seq data from a stem cell derived retinal pigmented epithelium (RPE) cell line along with matched Illumina short read RNA-seq. Using the two sources of RNA-seq data we design a rigorous *de novo* transcriptome pipeline that maximizes the conordance between short and long read *de novo* transcriptomes.
 
 |        We further apply this pipeline to construct a pan eye transcriptome using a previously published data set containing  `r toString(NUM_EYE_SAMPLES)` 368 ocular tissue samples compiled from mining publicly available sequencing data [@swamy_eye_2019].We use this pipeline to build transcriptomes in three major ocular subtissues: The cornea, retina, and the RPE, using RNA-seq data from both adult and fetal tissues to create a high-quality pan-eye transcriptome. In addition to our ocular samples, we used a subset of the GTEx dataset to construct transcriptomes for 49 other locations across the body to facilitate comparisons in transcriptomes across the body.
-|        We use our pan eye de novo transcriptome to reveal hundreds of novel gene isoforms as well as several novel genes in the and analyze their potential impact on ocular biology and disease. We provide our de novo transcriptomes as a resource to other researchers through an R package and R-shiny webapp.
+|        We use our pan eye *de novo* transcriptome to reveal hundreds of novel gene isoforms as well as several novel genes in the and analyze their potential impact on ocular biology and disease. We provide our *de novo* transcriptomes as a resource to other researchers through an R package and R-shiny webapp.
 
 
 # Methods 
@@ -354,7 +354,7 @@ Figure 3. Comparison of Salmon mapping rate decrease vs transcriptome size decre
 
 |       Our transcriptomes removed on average of `r toString(NUM_AVG_TXOME_SIZE_DECREASE*100)` % of the a tissue's base transcriptome. We define base transcriptome for a tissues as any transcript in the gencode annotation with non zero TPM in at least one sample of a given tissue type. As this was a strikingly large reduction in transcriptome size, we wanted to ensure we were not unduly throwing away data. We quantified transcript expression of our samples using Salmon, quantifiying each sample twice: once using the gencode V27 human transcript annotation, and once using its associated tissue specific transcriptome We found that despite the `r toString(NUM_AVG_TXOME_SIZE_DECREASE*100)` % reduction in number of transcripts between the base gencode and denovo transcriptomes, there is only an average decrease of `r toString(NUM_AVG_MAP_RATE_DIF*100)` % in mapping rate, indicating that majority of gene expression data is preserved.  
 
-## De novo transcriptomes identify of the tissue specific primary isoform expressed in a tissue
+## *de novo* transcriptomes identify of the tissue specific primary isoform expressed in a tissue
 
 |     It is useful researchers to know which isoform of a gene is the most relecant to a particular biological system. The APPRIS project identified principal isoforms for humans, based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most phenotypically relevant isoforms of transcripts. We instead propose a tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is better reflects biology than APPRIS principal isoforms.
 
@@ -390,7 +390,7 @@ ggplot(data = primary_isoforms_per_tissue, aes(x = body_location_pretty, y=count
 ```
 
 ::: {custom-style="CustomCaption"}
-Figure 4. APPPRIS principal isoforms within the de novo transcriptome
+Figure 4. APPPRIS principal isoforms within the *de novo* transcriptome
 :::
 
 |    We found that `r toString(NUM_APPRIS_RECOVERY_RATE)` of the APPRIS principal isoforms are also identified as the primary isoform in at least one tissue type. Within each tissue type, on average  `r toString(NUM_AVG_APPRIS)` % of are an appris primary isoform, `r toString(NUM_AVG_NONAPPRIS_GENCODE)`  of transcripts were a previously annotated gencode transcript, `r toString(NUM_AVG_NOVEL)` [THIS IS WRONG] %  of principal isoforms are novel isoforms. 
@@ -507,7 +507,7 @@ Figure 6. DNTX000dddd, potentially protein coding novel isoform in Fetal RPE. A)
 
 Placeholder figure, still trying to find the right transcript to look at here.
 
-## De novo transcriptome allow for a more precise variant prioritaizaion. 
+## *de novo* transcriptome allow for a more precise variant prioritaizaion. 
 
 The prediction of variants's biological impact is a fundamental step in variant prioritzation, especially in the diagnosis of genetic diseases or in interpreting GWAS results. We use our Ensembl's Variant Effect Predictor combined with our tissue transcriptomes to generate a tissue specific prediction of variant impact for variants of unknown significance(VUS) the clinvar database. We grouped different predicted consequences into a High, moderate and low impacts, and provide a full mapping of biological consequence to impact in our supplementary data.
 
@@ -609,7 +609,7 @@ In our ocular transcriptomes, we see that novel isoforms are largely subtissue-s
 
 We want to make our transcriptomes easily accessible to other researchers, so we designed a webapp to visualize our transcriptomes and access tissue-specific annotation files. We wanted to provide as much information to the user so that they can draw their own conclusions about the significance of potential novel exon, and so we provide the gene model with novel exon, coding and noncoding regions marked, along with the PIU for each transcript constructed within a gene. We also provide the fraction of samples within a given subtissue type a sample was detected in, to provide a further level of evidence to the validity of constructed transcripts.
 
-utility of de novo transcriptomes - primary isoforms, variant effect prediction, somthing about precision medicine.
+utility of *de novo* transcriptomes - primary isoforms, variant effect prediction, somthing about precision medicine.
 
 
 novel loci found some, some are interseting, some are not.
