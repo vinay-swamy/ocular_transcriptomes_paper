@@ -1,5 +1,5 @@
 working_dir: '/data/swamyvs/ocular_transcriptomes_paper/'
-data_dir: '/data/swamyvs/ocular_transcriptomes_pipeline/'
+data_dir: '/data/swamyvs/ocular_transcriptomes_pipeline/old_data/'
 longread_dir: '/data/swamyvs/pacbio_testing/'
 sample_file: '/data/swamyvs/ocular_transcriptomes_pipeline/sampleTableFullV3.tsv'
 salmon_version: 'salmon/1.1.0'
