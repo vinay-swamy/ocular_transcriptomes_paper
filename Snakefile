@@ -3,6 +3,7 @@ Snakemake wrapper to generate data for occular_transcriptomes_paper
 
 '''
 import yaml
+import re
 def readSampleFile(samplefile):
     # returns a dictionary of dictionaries where first dict key is sample id and second dict key are sample  properties
     res={}
@@ -25,6 +26,7 @@ def subtissue_to_sample(subtissue, sample_dict):
     res=[]
     [res.append(f'salmon_experiment/quant/{subtissue}/{sample}/quant.sf') for sample in sample_dict.keys() if sample_dict[sample]['subtissue'] == subtissue ]
     return(res)
+    
 
 
 salmon_version= config['salmon_version']
@@ -60,7 +62,9 @@ rule calc_txome_tx_counts_and_mapping_Rates:
         DNTX_mr= files['DNTX_mr'],
         gencode_mr= files['gencode_mr'],
         gtf_tx_counts= files['gtf_tx_counts'],
-        txcounts_mr_rdata= files['txome_stats_rdata']
+        txcounts_mr_rdata= files['txome_stats_rdata'], 
+        base_gtf_enst_tx_counts = 'clean_data/base_gtf_enst_tx_counts.tab',
+        union_enst_ids = 'clean_data/union_enst_ids.txt'
     shell:
         '''
         bash scripts/count_stats_from_files.sh \
@@ -69,7 +73,10 @@ rule calc_txome_tx_counts_and_mapping_Rates:
             {params.dntx_quant_path} \
             {output.DNTX_mr} \
             {output.gencode_mr} \
-            {output.gtf_tx_counts}
+            {output.gtf_tx_counts} \
+            {output.base_gtf_enst_tx_counts} \
+            {output.union_enst_ids}
+
              
         module load {R_version}
         Rscript scripts/transcriptome_pipeline_stats.R \
