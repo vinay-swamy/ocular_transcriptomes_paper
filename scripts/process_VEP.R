@@ -39,6 +39,10 @@ all_quant[is.na(all_quant)] <- 0
 
 sample_table <- sample_table %>% filter(sample %in% colnames(all_quant))
 
+eye_tissues <-  c("RPE_Fetal.Tissue",  "Retina_Adult.Tissue",  "RPE_Adult.Tissue", "Cornea_Adult.Tissue", "Cornea_Fetal.Tissue", "Retina_Fetal.Tissue")
+subtissues <- unique(sample_table$subtissue)
+body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(subtissue) %>% unique
+
 make_tissue_level_quant <- function(quant, sum_type, col_name){
     res <- lapply(subtissues, function(x) filter(sample_table, subtissue == x) %>% 
                pull(sample) %>% 
@@ -109,7 +113,46 @@ dntx_vep_impact_matrix <- dntx_vep_by_tissue %>%
            three_count = rowSums(.[,subtissues] == 3),
            var = rowVars(as.matrix(.[,subtissues]) ) )%>% 
     arrange(desc(var))
-save.image('testing/pvep.Rdata')
 dntx_vep_impact_matrix[is.na(dntx_vep_impact_matrix)] <- 1
 
-save(dntx_vep_impact_matrix, dntx_vep_by_tissue,gencode_vep_by_tissue, impact_diff, clinvar_vus_eye, file = files$variant_results_rdata)
+n=10
+n=10
+vep_exp_all_eye <- filter(dntx_vep_impact_matrix, allele_id %in% clinvar_vus_eye$allele_id) %>%
+    filter(rowSums(.[,eye_tissues] == 3) >=1, rowSums(.[,body_tissues] !=3) ==length(body_tissues))
+vep_no_eye <- filter(dntx_vep_impact_matrix, allele_id %in% clinvar_vus_eye$allele_id) %>% 
+    filter(rowSums(.[,eye_tissues] != 3) == length(eye_tissues),three_count >4  ) 
+impact_diff_changes <- impact_diff %>% filter(min_diff!=0 | max_diff!=0)
+eye_impact_increase <- impact_diff_changes %>% filter(max_diff>0, allele_id%in% clinvar_vus_eye$allele_id)
+vep_impact_increase <- filter(dntx_vep_impact_matrix, allele_id %in% eye_impact_increase$allele_id)
+
+
+vep_example <- bind_rows( vep_exp_all_eye %>% arrange(desc(var))%>% 
+                              #.[1:n,] %>% 
+                              select(allele_id, eye_tissues, everything()),
+                          vep_no_eye %>% arrange(desc(var)) %>% 
+                              #.[1:n,] %>% 
+                              select(allele_id, eye_tissues, everything()) ,
+                          vep_impact_increase
+)
+clinvar_example <- filter(clinvar_vus_eye, allele_id %in% vep_example$allele_id) %>% select(allele_id, contains('pheno'))
+#vep_example <- filter(vep_impact_matrix, allele_id %in% clinvar_vus_eye$allele_id) %>% arrange(desc(var))
+gencode_vep_by_tissue_simple <- gencode_vep_by_tissue %>% 
+    mutate(subtissue = 'gencode', max_impact_avg_exp=1, max_impact_med_exp=1) %>% 
+    distinct()
+merge_bt <- bind_rows(dntx_vep_by_tissue %>% mutate(build= 'dntx'),
+                      gencode_vep_by_tissue_simple%>% mutate(build= 'gencode'))
+vep_plot_df <- merge_bt %>%  
+    filter(allele_id %in% vep_example$allele_id) %>%
+    mutate(avg_exp = log2(max_impact_avg_exp+1), 
+           med_exp = log2(max_impact_med_exp + 1),
+           avg_exp = replace(avg_exp , avg_exp >5, 5),
+           allele_id = as.character(allele_id), 
+           `Variant Impact` = case_when(max_impact == 1 ~'Low',
+                                        max_impact == 2 ~ 'Moderate', 
+                                        max_impact == 3 ~ 'High') %>% factor(levels=c('Low', 'Moderate', 'High')),
+           subtissue = factor(subtissue, levels = c('gencode',eye_tissues, body_tissues))
+    ) %>% 
+    rename(`log2(TPM + 1)` = avg_exp)
+vep_plot_df[is.na(plot_df)] <- 0
+
+save(vep_plot_df, impact_diff, clinvar_vus_eye, file = files$variant_results_rdata)
