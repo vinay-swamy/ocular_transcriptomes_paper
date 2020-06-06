@@ -54,6 +54,15 @@ tx_counts <- read_delim(files$gtf_tx_counts, ' ' , col_names=c('raw', 'tx_count'
            raw=NULL)%>% 
         spread(build, tx_count) #%>%
     #select(subtissue, raw, gfc_filt, compfilt, final)
+base_enst_tx_counts <- read_delim(files$base_gtf_enst_tx_counts, ' ' , col_names=c('raw', 'tx_count')) %>% 
+    filter(!grepl('filtered', raw)) %>% 
+    mutate(build=ifelse(grepl('final',raw), 'filtered','base'),
+           subtissue= raw %>% 
+               str_remove("\\.combined") %>% 
+               str_split('/') %>% 
+               sapply(function(x) x[grep('\\.gtf', x) ] %>% str_remove('\\.gtf|_st\\.gtf')),
+           raw=NULL)%>% 
+    spread(build, tx_count)
 #----
 
 
@@ -87,7 +96,7 @@ gencode_tx_size <- lapply(subtissues, calc_txome_size) %>% bind_rows()
 
 
 
-save(gencode_tx_size, all_sample_mapping_rates,all_sample_mapping_rate_difference, tx_counts,  file = files$txome_stats_rdata)
+save(gencode_tx_size, all_sample_mapping_rates,all_sample_mapping_rate_difference, base_enst_tx_counts, tx_counts,  file = files$txome_stats_rdata)
 
 
 
