@@ -25,6 +25,15 @@ opts_knit$set(root.dir = '/data/swamyvs/ocular_transcriptomes_paper/')
 
 
 ```{r prep, include=FALSE,echo=FALSE}
+check_gzip <- function(){
+  files <- list.files('clean_data/rdata/', '.gz', full.names = T)
+  if (length(files) > 0){
+    lapply(files, function(x) system2('gunzip', x))
+  }
+}
+check_gzip()
+
+
 library(tidyverse)
 library(RColorBrewer)
 library(ComplexHeatmap)
