@@ -8,7 +8,7 @@ library(glue)
 parser <- ArgumentParser()
 parser$add_argument ('--longReadDir', action = 'store', dest = 'long_read_dir')
 parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
-
+list2env(parser$parse_args(), .GlobalEnv)
 #############
 # long_read_dir <- '/data/swamyvs/ocular_transcriptome_longread_analysis/'
 # files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
