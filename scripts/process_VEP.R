@@ -4,7 +4,7 @@ library(matrixStats)
 library(argparse)
 library(yaml)
 library(RBedtools)
-
+library(parallel)
 parser <- ArgumentParser()
 parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
@@ -92,7 +92,7 @@ gencode_vep_file <- paste0(files$VEP_dir, 'gencode/variant_summary.txt')
 gencode_vep_by_tissue <- lapply(seq_along(subtissues), function(i)read_VEP(gencode_vep_file, subtissues[i],med_gencode_tissue_tpm, avg_gencode_tissue_tpm )) %>%
     bind_rows
 
-
+save.image('testing/process_vep.Rdata')
 dntx_global_impacts <- dntx_vep_by_tissue %>% 
     group_by(allele_id) %>% 
     summarise(g_max_impact = max(max_impact), 
@@ -153,6 +153,6 @@ vep_plot_df <- merge_bt %>%
            subtissue = factor(subtissue, levels = c('gencode',eye_tissues, body_tissues))
     ) %>% 
     rename(`log2(TPM + 1)` = avg_exp)
-vep_plot_df[is.na(plot_df)] <- 0
+vep_plot_df[is.na(vep_plot_df)] <- 0
 
 save(vep_plot_df, impact_diff, clinvar_vus_eye, file = files$variant_results_rdata)
