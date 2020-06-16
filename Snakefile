@@ -126,7 +126,7 @@ rule summarize_long_read_results:
         module load {R_version}
         Rscript scripts/summarise_longread_results.R \
             --longReadDir {longread_dir} \
-            --cleanedData {output}
+            --filesYaml {files_yaml}
         '''
 
 
