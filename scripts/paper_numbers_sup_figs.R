@@ -9,10 +9,11 @@ parser$add_argument('--dataDir', action = 'store', dest = 'data_dir')
 parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 list2env(parser$parse_args(), .GlobalEnv)
 
-###
+########################
 working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
 files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
-###
+########################
 
 
 setwd(working_dir)
@@ -52,6 +53,12 @@ novel_sequence <- RBedtools('subtract', options = '-s', output = 'stdout', a=dnt
     RBedtools('merge', options = '-s -c 6 -o distinct',i=. )%>% 
     to_data_frame
 NUM_TOTAL_NOVEL_SEQ <- novel_sequence %>% mutate(length=X3-X2) %>% pull(length) %>% sum
+NUM_REF_TX_BASE_TXOME <- system2('grep', "-c -e 'class_code \"=\"' clean_data/all_base_tx.combined.gtf",stdout = T) %>% 
+    as.numeric
+NUM_NOVEL_TX_BASE_TXOME <- system2('awk', " '$3 == \"transcript\"' clean_data/all_base_tx.combined.gtf | grep -c -v -e 'class_code \"=\"' - ",
+                                   stdout = T) %>% 
+    as.numeric
+NUM_FRAC_REF_RECOVERED_BASE_TXOME <- {NUM_REF_TX_BASE_TXOME / NUM_TOTAL_GENCODE_TX *100} %>% round(3)
 #######ORFs
 cds_origin_df <- fread(files$CDS_origin_df)
 NUM_REF_ORF <-  cds_origin_df %>% select(-transcript_id) %>% distinct %>% pull(is_annotaed_cds) %>% {sum(.)}
@@ -89,7 +96,7 @@ NUM_AVG_NOVEL_ORF_PER_TISSUE <- mean(orf_count_per_tissue$count) %>% round(digit
 ########
 ########long read data numbers 
 load(files$long_read_results_rdata)
-NUM_BASE_TXOME_CONST_ACC <- sum(length_df_plotting$intersection_case == 'stringtie-pacbio') / sum(length_df_plotting$in_stringtie)
+NUM_BASE_TXOME_CONST_ACC <- {sum(length_df_plotting$intersection_case == 'stringtie-pacbio') / sum(length_df_plotting$in_stringtie)} %>% round(3)
 NUM_TXOME_CONST_ACC_2000_ABOVE <- acc_df_by_length %>% filter(as.numeric(qbin) >2000) %>% pull(acc) %>% mean %>% round(digits = 3)
 NUM_TXOME_CONST_ACC_2000_BELOW <- acc_df_by_length %>% filter(as.numeric(qbin) <=2000) %>% pull(acc) %>% mean %>% round(digits = 3)
 NUM_FILT_TXOME_ACC_2000_ABOVE <- tpm_df_plotting %>% filter(filtering_type == 'mean',co == 1 ) %>% 
@@ -103,9 +110,11 @@ NUM_TXOME_MERGE_ACC_2000_ABOVE <- tpm_df_plotting %>%
 NUM_TXOME_MERGE_ACC_2000_BELOW <- tpm_df_plotting %>% 
     filter(co == 1,  filtering_type == 'merge', qbin%in%c('1000', '2000')) %>% pull(acc) %>% mean %>% round(digits = 3)
 NUM_TXOME_FILTER_SIZE <- tpm_df_plotting %>% filter(co == 1, filtering_type == 'mean') %>% pull(tx_in_build) %>% sum
+
 #######
 ####### novel isoform numbers 
 load(files$novel_isoform_analysis_rdata)
+
 appris_totals <- primary_isoforms_per_tissue %>% 
     spread(key = primary_isoform_origin, value = count) %>% 
     ungroup %>% 
@@ -116,6 +125,13 @@ appris_totals <- primary_isoforms_per_tissue %>%
 NUM_AVG_APPRIS <- mean(appris_totals$percent_appris) %>% round(digits = 3)
 NUM_AVG_NONAPPRIS_GENCODE = mean(appris_totals$percent_gencode) %>% round(digits = 3)
 NUM_AVG_NOVEL = mean(appris_totals$percent_novel) %>% round(digits = 3)
+plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line') ]
+all_tx <- tibble(transcript_id = reduce(plot_list, union))
+noveliso_ddf <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x)) %>% 
+    mutate(total = rowSums(.[,-1])) 
+NUM_TSPEC_ISO = {sum(noveliso_ddf$total == 1) / nrow(noveliso_ddf)*100} %>% round(2)
+NUM_AVG_PIU <- {mean(piu_df$piu)*100} %>% round(2)
+
 #######
 ####### VEP numbers
 load(files$variant_results_rdata)
@@ -124,9 +140,10 @@ NUM_TOTAL_VUS <- nrow(impact_diff)
 NUM_IMPACT_INCREASE <- impact_diff_changes %>% filter(max_diff>0) %>% nrow
 NUM_IMPACT_DECREASE <- impact_diff_changes %>% filter(min_diff > 0) %>% nrow 
 ##########EXON count numbers 
-load(files$ build_results_rdata)
+load(files$build_results_rdata)
+exon_count_df <- exon_type_by_transcript_type %>% group_by(label= nv_type_rc) %>% summarise(count= n())
 NUM_TES_TSS <- filter(exon_count_df ,grepl('T\\wS', label) ) %>% 
-    {sum(.$count) / sum(exon_count_df$count)} %>% round(digit =3)
+    {sum(.$count) / sum(exon_count_df$count) *100} %>% round(digit =3)
 
 ####### Correlation between expression and transcript length 
 load(files$gencode_quant)
@@ -150,7 +167,27 @@ calc_txome_size <- function(t_tissue){
 res <- sapply(subtissues, calc_txome_size)
 NUM_AVG_EXP_TX_LENGTH_COR <- mean(res)
 ############
+#fetal retina dev diffexp
+load(files$fetal_retina_diffexp_results)
+NUM_DEVRET_SAMPLES = nrow(dev_retina_core_tight)
+NUM_DEVRET_TIMESPOINTS = length(unique(dev_retina_core_tight$age_str))
+NUM_DTU_TX = length(all_dtu_tx)
+NUM_DTU_GENE = length(all_dtu_genes)
+############
+#validation_pvals 
+load(files$CAGE_polyA_rdata)
+gc_cage <- filter(all_CAGE_phase12,build == 'gencode') %>% pull(abs_dist)
+dntx_cage <- filter(all_CAGE_phase12, build == 'dntx') %>% pull(abs_dist)
+NUM_PVAL_CAGE <- wilcox.test(dntx_cage, gc_cage, alternative = 'less') %>% .[['p.value']] %>% replace(., . == 0, 2.2e-16)
 
+gc_polya <- filter(all_polya_closest,label == 'gencode') %>% pull(abs_dist)
+dntx_polya <- filter(all_polya_closest, label == 'dntx') %>% pull(abs_dist)
+NUM_PVAL_POLYA <- wilcox.test(dntx_polya, gc_polya, alternative = 'less') %>% .[['p.value']] %>% round(digits=3) %>%  replace(., . == 0, 2.2e-16)
+
+gc_phylop <- all_phylop %>% filter(build == 'gencode') %>% pull(mean_phylop_score)
+dntx_phylop <- all_phylop %>% filter(build == 'dntx') %>% pull(mean_phylop_score)
+NUM_PVAL_PHYLOP <- wilcox.test(dntx_phylop, gc_phylop, alternative = 'greater') %>% .[['p.value']] %>% replace(., . == 0, 2.2e-16)
 
 save(list= ls()[grepl('NUM_', ls())], file = files$paper_numbers_rdata)
+
 
