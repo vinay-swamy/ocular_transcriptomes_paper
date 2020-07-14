@@ -20,6 +20,8 @@ gencode_quant: /data/swamyvs/ocular_transcriptomes_pipeline/data/rdata/gencode_q
 gtf_tx_counts: /data/swamyvs/ocular_transcriptomes_paper/clean_data/all_gtfs_tx_counts.tab
 hmmer_dir: /data/swamyvs/ocular_transcriptomes_pipeline/data/novel_loci/hmmer/
 hmmer_results: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/hmmer_results.Rdata
+intron_variant_analysis_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/intron_variant_analysis.Rdata
+intron_variant_panel: /data/swamyvs/ocular_transcriptomes_pipeline/ref/retinal_dystrophy_nc_variant_panel.txt
 long_read_results_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/longread_summary.Rdata
 longread_pfx: /data/swamyvs/ocular_transcriptome_longread_analysis/data/combined_gtfs/lr_ref_allRPE_strict
 novel_isoform_analysis_rdata: /data/swamyvs/ocular_transcriptomes_paper/clean_data/rdata/novel_isoforms.Rdata

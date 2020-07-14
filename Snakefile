@@ -149,17 +149,32 @@ rule novel_isoforms_ocular_tissues:
             
         '''
 
-rule process_VEP:
+# rule process_VEP:
+#     input: 
+#         expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+#     output: 
+#         example_variant_results = files['variant_results_rdata']
+#     shell:
+#         '''
+#         module load {R_version}
+#         Rscript scripts/process_VEP.R \
+#         --dataDir {data_dir} \
+#         --filesYaml {files_yaml}  
+#         '''
+
+rule predict_intronic_variants:
     input: 
-        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = ['Retina_Adult.Tissue', 'Retina_Fetal.Tissue'])
     output: 
-        example_variant_results = files['variant_results_rdata']
+        example_variant_results = files['intron_variant_analysis_rdata']
     shell:
         '''
         module load {R_version}
-        Rscript scripts/process_VEP.R \
-        --dataDir {data_dir} \
-        --filesYaml {files_yaml}  
+        Rscript scripts/intron_variant_analysis.R  \
+            --workingDir {working_dir} \
+            --dataDir {data_dir} \
+            --fileYaml {files_yaml}
+
         '''
 
 rule run_salmon_excluded_samples:
@@ -228,7 +243,8 @@ rule paper_numbers_and_sup_figs:
         files['txome_stats_rdata'], 
         files['novel_isoform_analysis_rdata'],
         files['long_read_results_rdata'],
-        files['variant_results_rdata'],
+        #files['variant_results_rdata'],
+        files['intron_variant_analysis_rdata'],
         files['fetal_retina_diffexp_results'], 
         files['CAGE_polyA_rdata']
     output: 

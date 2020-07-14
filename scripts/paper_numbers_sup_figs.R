@@ -10,9 +10,9 @@ parser$add_argument('--filesYaml', action = 'store', dest = 'files_yaml')
 list2env(parser$parse_args(), .GlobalEnv)
 
 ########################
-working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
-data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
-files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
+# working_dir <- '/data/swamyvs/ocular_transcriptomes_paper/'
+# data_dir <- '/data/swamyvs/ocular_transcriptomes_pipeline/'
+# files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
 ########################
 
 
@@ -179,14 +179,36 @@ load(files$CAGE_polyA_rdata)
 gc_cage <- filter(all_CAGE_phase12,build == 'gencode') %>% pull(abs_dist)
 dntx_cage <- filter(all_CAGE_phase12, build == 'dntx') %>% pull(abs_dist)
 NUM_PVAL_CAGE <- wilcox.test(dntx_cage, gc_cage, alternative = 'less') %>% .[['p.value']] %>% replace(., . == 0, 2.2e-16)
+rcompanion::wilcoxonR(dntx_cage, gc_cage)
 
 gc_polya <- filter(all_polya_closest,label == 'gencode') %>% pull(abs_dist)
 dntx_polya <- filter(all_polya_closest, label == 'dntx') %>% pull(abs_dist)
 NUM_PVAL_POLYA <- wilcox.test(dntx_polya, gc_polya, alternative = 'less') %>% .[['p.value']] %>% round(digits=3) %>%  replace(., . == 0, 2.2e-16)
+rcompanion::wilcoxonR(dntx_polya, gc_polya)
 
 gc_phylop <- all_phylop %>% filter(build == 'gencode') %>% pull(mean_phylop_score)
 dntx_phylop <- all_phylop %>% filter(build == 'dntx') %>% pull(mean_phylop_score)
 NUM_PVAL_PHYLOP <- wilcox.test(dntx_phylop, gc_phylop, alternative = 'greater') %>% .[['p.value']] %>% replace(., . == 0, 2.2e-16)
+
+rcompanion::wilcoxonR(dntx_phylop, gc_phylop)
+#########
+genes_with_novel_iso <- conv_tab %>% filter(Retina_Fetal.Tissue != '' | Retina_Adult.Tissue != '') %>% select(transcript_id) %>% 
+    inner_join(pan_body_gtf) %>%
+    filter(type == 'transcript', !class_code %in%c('=', 'u')) %>% 
+    pull(gene_name) %>% unique
+all_genes <- conv_tab %>% filter(Retina_Fetal.Tissue != '' | Retina_Adult.Tissue != '') %>% select(transcript_id) %>% 
+    inner_join(pan_body_gtf) %>%
+    pull(gene_name) %>% unique
+ret_net_genes <- scan('/data/swamyvs/ocular_transcriptomes_pipeline/ref/retnet_hgncIDs_2017-03-28.txt',
+                      what = character(), sep = '\n')
+
+x=sum(ret_net_genes%in% genes_with_novel_iso)
+m=length(ret_net_genes)
+n = length(all_genes) - m
+k = length(genes_with_novel_iso)
+NUM_RET_NET_GENES <- m
+NUM_RETNET_IN_DNTX <- x
+NUM_RETNET_ENRICH_PVAL= dhyper(x, m, n, k) %>% formatC(format = 'e', digits = 1)
 
 save(list= ls()[grepl('NUM_', ls())], file = files$paper_numbers_rdata)
 
