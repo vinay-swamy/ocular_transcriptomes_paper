@@ -75,10 +75,11 @@ read_VEP <- function(file, tissue, c_med_t_tpm, c_avg_t_tpm){
         inner_join(clinsig_rank) %>% 
         left_join(c_med_t_tpm[[tissue]]) %>% 
         left_join(c_avg_t_tpm[[tissue]]) %>%
-        select(allele_id,impact_code, avg_exp, med_exp) %>% 
+        select(allele_id,impact_code, avg_exp, med_exp, Consequence) %>% 
         distinct %>% 
         group_by(allele_id) %>% #select the max variant for each allele:transcript pair 
-        summarise(max_impact = max(impact_code), 
+        summarise(max_impact = max(impact_code),
+                  max_consequence = Consequence[which.max(impact_code)],
                   max_impact_avg_exp = avg_exp[which.max(impact_code)], 
                   max_impact_med_exp = med_exp[which.max(impact_code)] ) %>% 
         mutate(subtissue = tissue)
