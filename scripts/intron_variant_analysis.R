@@ -70,7 +70,7 @@ keep_locs <- c('chr16:1526594', 'chr1:94002463', 'chr4:15988237', 'chr14:2132142
 clean_variant_results <-  filter(all_vars, Location %in% keep_locs | gene_name == 'ABCA4') %>% 
     group_by(Location, `#Uploaded_variation`, gene_name, Consequence) %>% 
     summarise(`Gencode Predicted Consequence` = str_split(gencode_consequence, ',') %>% 
-                                                unlist %>% unique %>% paste(collapse = '\n')) %>%
+                                                unlist %>% unique %>% paste(collapse = ',\n')) %>%
     ungroup %>% 
     rename(var_id = `#Uploaded_variation`) %>%
     inner_join(panel_variants) %>% select( `Gene Name` = gene_name, `Location(hg19)` = raw_loc, 
@@ -78,19 +78,22 @@ clean_variant_results <-  filter(all_vars, Location %in% keep_locs | gene_name =
     distinct 
 
 
-var_to_study <-list(c('Chr1:94468019','Bauwens et al.' ),
-                    c('Chr1:94481967', 'Bauwens et al.' ),
-                    c('Chr1:94484001', 'Braunet al.\nZernant et al.' ),
-                    c('Chr1:94484082', 'Braun et al.\nZernant et al.' ),
-                    c('Chr1:94526934', 'Zernant et al.' ),
-                    c('Chr1:94527698', 'Sangermano et al.' ),
-                    c('Chr1:94546780', 'Sangermano et al.' ),
-                    c('Chr1:94546814','Bauwens et al.' ),
-                    c('Chr14:21789588', 'Geoffroy et al.'),
-                    c('Chr16:1576595', 'Mayer et al.'),
-                    c('Chr4:15989860', 'Jamshidi et al.')
-) %>% do.call(rbind, .) %>% as_tibble %>%  rename( `Location(hg19)`=V1, `Published Study` =V2)
-clean_variant_results <- clean_variant_results %>% inner_join(var_to_study)
+var_to_study <-list(c('Chr1:94468019','Bauwens et al.', "ABCA4-associated disease"),
+                    c('Chr1:94481967', 'Bauwens et al.', "ABCA4-associated disease"),
+                    c('Chr1:94546814','Bauwens et al.',"ABCA4-associated disease" ),
+                    c('Chr1:94484001', 'Braun et al.\nZernant et al.', "Stargardt disease" ),
+                    c('Chr1:94484082', 'Braun et al.\nZernant et al.',"Stargardt disease" ),
+                    c('Chr1:94526934', 'Zernant et al.', "Stargardt disease" ),
+                    c('Chr1:94527698', 'Sangermano et al.',"Stargardt disease" ),
+                    c('Chr1:94546780', 'Sangermano et al.',"Stargardt disease"),
+                    c('Chr14:21789588', 'Geoffroy et al.', "Ciliopathy"),
+                    c('Chr16:1576595', 'Mayer et al.', "Cone–rod dystrophy"),
+                    c('Chr4:15989860', 'Jamshidi et al.', "RPGRIP1-mediated inherited retinal degeneration")
+) %>% do.call(rbind, .) %>% as_tibble %>%  rename( `Location(hg19)`=V1, `Published Study` =V2, `Associated Disease` = V3)
+clean_variant_results <- clean_variant_results %>% 
+    mutate(`DNTX Predicted Consequence` = str_replace_all(`DNTX Predicted Consequence`, '_', ' '),
+           `Gencode Predicted Consequence` = str_replace_all(`Gencode Predicted Consequence`, '_', ' ')) %>% 
+    inner_join(var_to_study)
 
 save(clean_variant_results, file = files$intron_variant_analysis_rdata)
 
