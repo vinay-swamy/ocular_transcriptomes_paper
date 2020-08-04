@@ -73,8 +73,9 @@ clean_variant_results <-  filter(all_vars, Location %in% keep_locs | gene_name =
                                                 unlist %>% unique %>% paste(collapse = ',\n')) %>%
     ungroup %>% 
     rename(var_id = `#Uploaded_variation`) %>%
-    inner_join(panel_variants) %>% select( `Gene Name` = gene_name, `Location(hg19)` = raw_loc, 
-                                           `DNTX Predicted Consequence` = Consequence,`Gencode Predicted Consequence` ) %>% 
+    inner_join(panel_variants) %>% 
+    select( `Gene Name` = gene_name, `Location(hg19)` = raw_loc, variant, NM_accession,
+            `DNTX Predicted Consequence` = Consequence,`Gencode Predicted Consequence` ) %>% 
     distinct 
 
 
