@@ -79,16 +79,15 @@ clean_variant_results <-  filter(all_vars, Location %in% keep_locs | gene_name =
     distinct 
 
 
-var_to_study <-list(c('Chr1:94468019','Bauwens et al.', "ABCA4-associated disease", "Chr1:94468019 G>T"),
-                    c('Chr1:94481967', 'Bauwens et al.', "ABCA4-associated disease",'Chr1:94481967 C>T'),
-                    c('Chr1:94546814','Bauwens et al.',"ABCA4-associated disease",'Chr1:94546814 G>C' ),
+var_to_study <-list(c('Chr1:94468019','Bauwens et al.', "ABCA4-associated maculopathy", "Chr1:94468019 G>T"),
+                    c('Chr1:94481967', 'Bauwens et al.', "ABCA4-associated maculopathy",'Chr1:94481967 C>T'),
+                    c('Chr1:94546814','Bauwens et al.',"ABCA4-associated maculopathy",'Chr1:94546814 G>C' ),
                     c('Chr1:94484001', 'Braun et al.\nZernant et al.', "Stargardt disease","Chr1:94484001 C>T" ),
                     #c('Chr1:94484001', 'Braun et al.\nZernant et al.', "Stargardt disease","Chr1:94484001 C>A" ),
                     c('Chr1:94484082', 'Braun et al.\nZernant et al.',"Stargardt disease",'Chr1:94484082 T>G' ),
                     c('Chr1:94526934', 'Zernant et al.', "Stargardt disease",'Chr1:94526934 T>G' ),
                     c('Chr1:94527698', 'Sangermano et al.',"Stargardt disease", 'Chr1:94527698 G>C'),
                     c('Chr1:94546780', 'Sangermano et al.',"Stargardt disease",'Chr1:94546780 C>G'),
-                    
                     c('Chr14:21789588', 'Jamshidi et al.',"RPGRIP1-mediated inherited retinal degeneration","Chr14:21789588 G>A"),
                     c('Chr4:15989860', 'Mayer et al.', "Cone–rod dystrophy",  "Chr4:15989860 T>G"),
                     c('Chr16:1576595','Geoffroy et al.',"Ciliopathy", "Chr16:1576595 C>A" )
