@@ -453,7 +453,7 @@ plot_piu_bar <- function(gene, black_list=''){
         mutate(ab=log2(avg_ab+1)) %>% 
         arrange(age_num) %>% 
         mutate(age_fac = factor(age_str, levels = unique(age_str)))
-    color_list <- c('red', 'blue', 'green', 'purple')
+    color_list <- c('red','blue', 'green', 'purple')
     names(color_list) <- unique(ab$pretty_txid) %>% {c(.[. == gene], .[grepl('ENST',.)], .[grepl('DNTX',.)] )}
     
     piu_plot <- ggplot(piu %>% rename(`Transcript ID` = pretty_txid) )+
@@ -461,15 +461,16 @@ plot_piu_bar <- function(gene, black_list=''){
         scale_fill_manual(values = color_list)+
         xlab('Days Post Fertilization')+
         ylab('fraction of total\ngene expression')+
-        cowplot::theme_cowplot()#+
-    #theme(axis.text.x = element_text(angle = 45, hjust=1))
+        cowplot::theme_cowplot() +
+        theme(legend.position = c(1,1))
     ab_plot <- ggplot(ab %>% rename(`Transcript ID` = pretty_txid) )+
         geom_line(aes(x = age_fac, y=ab, group = `Transcript ID`, color =`Transcript ID`)) +
         scale_color_manual(values = color_list)+
         xlab('Days Post Fertilization')+
         ylab('log2(TPM+1)') +
-        cowplot::theme_cowplot()
-    p <- piu_plot / ab_plot +plot_annotation(tag_level = 'A') +plot_layout(guides = 'collect')
+        cowplot::theme_cowplot() +
+        theme(legend.title = element_blank())
+    p <- piu_plot / ab_plot +plot_annotation(tag_level = 'A') #+plot_layout(guides = 'collect')
     p
     return(p)
     
@@ -504,7 +505,7 @@ draw_all_transcripts_static <- function(gene, gtf,keep_tx, black_list = ''){
         filter(!transcript_id %in% black_list)
     # mutate(pretty_txid = replace(pretty_txid, transcript_id%in%all_dtu_tx, 
     #                            paste0(pretty_txid[transcript_id%in%all_dtu_tx], '*'  )) )
-    color_list <- c('red', 'blue', 'green', 'purple')
+    color_list <- c( 'blue', 'green', 'purple')
     names(color_list) <- unique(plot_data$pretty_txid) %>% {c(gene, .[grepl('ENST',.)], .[grepl('DNTX',.)] )}
     #print(plot_data)
     #print(color_list)
@@ -525,8 +526,130 @@ df <- conv_tab %>% inner_join(t2g) %>% inner_join(all_dtu) %>% inner_join(refid2
     filter(class_code != '=', gene_name %in% pr_genes)
 #t_gene <- unique(df$gene_name)[8]#MYO9A 
 t_gene <-  "MYO9A"
-gm_fetret <- draw_all_transcripts_static(t_gene , gtf, all_dtu_tx, black_list = 'DNTX_00080651')
+#gm_fetret <- draw_all_transcripts_static(t_gene , gtf, all_dtu_tx, black_list = 'DNTX_00080651')
 piu_fetret <- plot_piu_bar(t_gene, black_list = 'DNTX_00080651')
+
+###new code 
+library(DBI)
+db_name <- '/data/swamyvs/ocular_transcriptomes_pipeline/data/shiny_data/app_data/DNTX_db.sql'
+con <- dbConnect(RSQLite::SQLite(),db_name)
+keep_tx <- all_dtu_tx
+pretty_keep_tx <- filter(refid2dntx, transcript_id %in% keep_tx) %>% pull(pretty_txid) %>% unique
+s_gtf <- con %>% tbl('plotting_gtf') %>% filter(gene_name == t_gene) %>% collect %>% filter(transcript_id %in% pretty_keep_tx)
+
+c_merge <- function(mat){
+    #mat must bed sorted by start and interval length 
+    res <- list()
+    cur <- mat[1, ]
+    j <- 1
+    for( i in 2:nrow(mat)){
+        #1=start, 2=end#
+        if(mat[i, 1]<= cur[1,  2]){
+            #merge the interval 
+            if(mat[i, 2] > cur[1, 2]){
+                cur[1, 2] <- mat[i, 2]
+                cur[1, 3] <- paste(cur[1, 3],mat[i, 3], sep='-')
+            }else{
+                cur[1, 3] <- paste(cur[1, 3],mat[i, 3], sep='-')
+            }
+            
+        }else{
+            # interval is good 
+            if(any(cur %in% res)) {cur <- mat[i, ] }
+            res[[j]] <- cur 
+            cur <- mat[i, ]
+            j <- j+1
+        }
+        
+    }
+    if(!any(cur %in% res)) {
+        #cur[1, 3] <- paste(cur[1, 3],mat[i, 3], sep='-')
+        res[[j+1]] <- cur
+    }
+    return(do.call(rbind, res))
+    
+} 
+
+
+
+draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
+    #dynamically scale introns, because it doesnt work well precopmuting it for genes with a lot of exons
+    gtf_gene <- filter(gtf, gene_name == gene, transcript_id %in% keep_tx, !transcript_id %in% black_list)
+    distinct_exons <- gtf_gene %>% filter(type == 'exon') %>% 
+        select(seqid, strand, start, end, Xmin, Xmax) %>% 
+        distinct %>% 
+        mutate(length = sqrt(end-start),) %>% 
+        arrange(start, length) %>% 
+        mutate(id= as.character(1:nrow(.))) %>% 
+        select(-length)
+    
+    fin <- distinct_exons %>% select(Xmin, Xmax, id) %>% c_merge %>% 
+        mutate(length = mean(Xmax-Xmin))
+    
+    
+    gap=mean(fin$length)/g
+    min_igap <- {fin$Xmin[2:nrow(fin)] - fin$Xmax[1:(nrow(fin )-1)]}
+    min_igap[min_igap<0] <- -Inf
+    min_igap_fail <-  which(min_igap>gap)
+    for(idx in min_igap_fail){
+        fin_idx= idx+1
+        #if(fin[fin_idx,'length'] >=gap){ gap <- fin[fin_idx,'length']+gap  }
+        delta = gap- min_igap[idx]
+        if(delta>0) print('MOOOOOO')
+        nfin <- nrow(fin)
+        fin[fin_idx:nfin,'Xmin'] <- fin[fin_idx:nfin,'Xmin']+delta
+        fin[fin_idx:nfin,'Xmax'] <- fin[fin_idx:nfin,'Xmax']+delta
+        
+    }
+    correct <-  fin %>% 
+        filter(!grepl('-',id))
+    to_correct <-  fin %>% 
+        filter(grepl('-',id)) %>%  
+        mutate(id= str_split(id, '-')) %>% 
+        unnest(id) %>% 
+        rename(new_xmin = Xmin, new_xmax = Xmax) %>% 
+        inner_join(distinct_exons) 
+    
+    
+    res <- lapply(unique(to_correct$new_xmin), function(x) filter(to_correct, new_xmin == x) %>% 
+                      mutate(d=(min(Xmin)-x), Xmin =Xmin - d , Xmax =Xmax -d)) %>% bind_rows %>% 
+        select(all_of(colnames(correct)))
+    all_correct <- bind_rows(correct, res, ) %>% arrange(Xmin) %>% select(-length)
+    
+    
+    all_plot_data <- distinct_exons %>% 
+        select(-Xmax, -Xmin) %>%  
+        inner_join(all_correct) %>% 
+        inner_join(gtf_gene %>% select(-Xmin, -Xmax, -length)) %>% 
+        mutate(`exon type`=ifelse(is.na(novel_exon_id), 'ref', 'novel')) 
+    plot_data <- all_plot_data %>% filter(type == 'exon') %>% mutate(exon_number = as.numeric(exon_number))
+    plot_data$Xmax <- plot_data$Xmax-sf
+    plot_data$Xmin[3:nrow(plot_data)] <- plot_data$Xmin[3:nrow(plot_data)] -sf
+    j <- min(plot_data$Xmin)
+    plot_data <- plot_data %>% mutate(Xmin = Xmin-j, Xmax = Xmax-j)
+    color_list <- c('black', 'red')
+    names(color_list) <- c('ref', 'novel')
+    color_list <- c('red', 'blue', 'green', 'purple')
+    names(color_list) <- unique(plot_data$transcript_id) %>% {c(gene, .[grepl('ENST',.)], .[grepl('DNTX',.)] )}
+    plot <- ggplot(data = plot_data) +
+        #geom_hline(yintercept = 0, colour='black', size=2)+
+        #geom_rect_interactive(aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=`exon type`, tooltip=ttip))+
+        geom_rect( aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=transcript_id))+
+        scale_fill_manual(values = color_list) +
+        facet_wrap(~transcript_id, ncol=1)+
+        #ggtitle(gene) +
+        theme_void() +
+        theme( strip.background = element_blank(),strip.text.x = element_blank(), legend.position = 'none')
+        #      legend.title = element_text(size=80), legend.text =element_text(size = 70))
+    #print(nchar(plot$data$transcript_id))
+    #return(plot)
+    #girafe(ggobj = plot, width_svg = wsvg, height_svg = hsvg)
+    #return(girafe(ggobj = plot, width_svg = wsvg, height_svg = hsvg))
+    return(plot)
+    
+}
+gm_fetret <- draw_all_transcripts_csm(t_gene,s_gtf, pretty_keep_tx, 1, black_list = 'DNTX_00080651', sf=18 )
+####
 bdes <- '
 AB
 AC

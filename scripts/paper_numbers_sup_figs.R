@@ -21,12 +21,17 @@ files <- read_yaml(files_yaml)
 ######### base numbers 
 sample_table <- read_tsv(files$sample_table)
 NUM_TOTAL_SAMPLES <- nrow(sample_table)
-NUM_EYE_SAMPLES <- sample_table %>% filter(!body_location %in% c('Brain', 'Body')) %>% nrow 
-NUM_BODY_SAMPLES <- sample_table %>% filter(body_location %in% c('Brain', 'Body')) %>% nrow 
-NUM_BODY_TISSUES <- sample_table %>% filter(body_location %in% c('Brain', 'Body') | subtissue%in%c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line') ) %>% 
-    pull(subtissue) %>% unique %>% length 
+
+NUM_EYE_SAMPLES <- sample_table %>% filter(!(body_location %in% c('Brain', 'Body') | subtissue%in%c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) ) %>% nrow 
 NUM_EYE_TISSUES <- sample_table %>% filter(!(body_location %in% c('Brain', 'Body') | subtissue%in%c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) ) %>% 
+    pull(subtissue) %>% unique %>% length
+
+NUM_BODY_SAMPLES <- sample_table %>% filter(body_location %in% c('Brain', 'Body')) %>% nrow 
+NUM_BODY_TISSUES <- sample_table %>% filter(body_location %in% c('Brain', 'Body') ) %>% 
     pull(subtissue) %>% unique %>% length 
+NUM_MAJOR_BODY_TISSUES <- sample_table %>% filter(body_location %in% c('Brain', 'Body') ) %>% 
+    pull(tissue) %>% unique %>% length 
+
 load(files$core_tight_rdata)
 core_tight <- core_tight %>% as_tibble %>%  filter(sample_accession %in% sample_table$sample)
 NUM_STUDIES = length(unique(core_tight$study_accession))
@@ -52,7 +57,7 @@ novel_sequence <- RBedtools('subtract', options = '-s', output = 'stdout', a=dnt
     RBedtools('sort', output = 'stdout', i=.) %>% 
     RBedtools('merge', options = '-s -c 6 -o distinct',i=. )%>% 
     to_data_frame
-NUM_TOTAL_NOVEL_SEQ <- novel_sequence %>% mutate(length=X3-X2) %>% pull(length) %>% sum
+NUM_TOTAL_NOVEL_SEQ <- novel_sequence %>% mutate(length=X3-X2) %>% pull(length) %>% sum %>% round(digits = 1)
 NUM_REF_TX_BASE_TXOME <- system2('grep', "-c -e 'class_code \"=\"' clean_data/all_base_tx.combined.gtf",stdout = T) %>% 
     as.numeric
 NUM_NOVEL_TX_BASE_TXOME <- system2('awk', " '$3 == \"transcript\"' clean_data/all_base_tx.combined.gtf | grep -c -v -e 'class_code \"=\"' - ",
@@ -129,8 +134,8 @@ plot_list <- novel_eye_tx_by_tissue[!names(novel_eye_tx_by_tissue) %in% c('Lens_
 all_tx <- tibble(transcript_id = reduce(plot_list, union))
 noveliso_ddf <- bind_cols(all_tx, lapply(plot_list, function(x) all_tx$transcript_id%in% x)) %>% 
     mutate(total = rowSums(.[,-1])) 
-NUM_TSPEC_ISO = {sum(noveliso_ddf$total == 1) / nrow(noveliso_ddf)*100} %>% round(2)
-NUM_AVG_PIU <- {mean(piu_df$piu)*100} %>% round(2)
+NUM_TSPEC_ISO = {sum(noveliso_ddf$total == 1) / nrow(noveliso_ddf)*100} %>% round(3)
+NUM_AVG_PIU <- {mean(piu_df$piu)*100} %>% round(3)
 
 #######
 ####### VEP numbers
@@ -145,10 +150,16 @@ exon_count_df <- exon_type_by_transcript_type %>% group_by(label= nv_type_rc) %>
 NUM_TES_TSS <- filter(exon_count_df ,grepl('T\\wS', label) ) %>% 
     {sum(.$count) / sum(exon_count_df$count) *100} %>% round(digit =3)
 
+########## ref gtf transcript and gene types 
+ref_gtf <- rtracklayer::readGFF(files$ref_gtf)
+NUM_PC_GC_TX <- ref_gtf %>% filter(type == 'transcript', transcript_type == 'protein_coding') %>% nrow 
+NUM_NC_GC_TX <- ref_gtf %>% filter(type == 'transcript', transcript_type != 'protein_coding') %>% nrow 
+NUM_PC_GC_GENE <- ref_gtf %>% filter(type == 'gene', gene_type == 'protein_coding') %>% nrow 
+NUM_NC_GC_GENE <- ref_gtf %>% filter(type == 'gene', gene_type != 'protein_coding') %>% nrow 
+
 ####### Correlation between expression and transcript length 
 load(files$gencode_quant)
 subtissues <- unique(sample_table$subtissue)
-ref_gtf <- rtracklayer::readGFF(files$ref_gtf)
 ref_tx_lengths <- filter(ref_gtf, type == 'exon') %>% select(seqid, strand, start, end, transcript_id) %>% 
     mutate(length = end-start) %>% 
     group_by(transcript_id) %>% 
