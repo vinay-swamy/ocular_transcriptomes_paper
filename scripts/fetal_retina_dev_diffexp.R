@@ -201,6 +201,11 @@ all_dtu_list <- lapply(levels(dev_retina_core_tight$pseudo_age), analyze_DTU)
 all_dtu <- lapply(all_dtu_list, function(x) x$filtered %>% select(gene_name, transcript_id)) %>% bind_rows() %>% distinct()
 dtu_genes_multi_tx <- table(all_dtu$gene_name) %>% .[.>1] %>% names
 all_dtu <- all_dtu %>% filter(gene_name %in% dtu_genes_multi_tx)
+### for suppdata
+all_dtu_tab <- lapply(all_dtu_list, function(x) x$filtered ) %>% bind_rows() %>% distinct()
+all_dtu_tab <- all_dtu_tab %>% filter(gene_name %in% dtu_genes_multi_tx)
+save(all_dtu_tab, file = 'clean_data/rdata/all_dtu.Rdata')
+
 
 all_dtu_genes <- all_dtu$gene_name %>% unique
 all_dtu_tx <- all_dtu$transcript_id
@@ -671,8 +676,8 @@ fp <- top/bottom +
     theme(legend.margin = margin(0,0,0,0), legend.box.margin=margin(-10,-10,-10,-10))
 
 
-save(vp, dp, piu_fetret, gm_fetret, gghm, top, bottom,fp, full_des, bdes, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
-     file =files$fetal_retina_diffexp_results )
+#save(vp, dp, piu_fetret, gm_fetret, gghm, top, bottom,fp, full_des, bdes, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
+#     file =files$fetal_retina_diffexp_results )
 
 
 
