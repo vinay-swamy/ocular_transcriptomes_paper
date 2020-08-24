@@ -220,7 +220,7 @@ k = length(genes_with_novel_iso)
 NUM_RET_NET_GENES <- m
 NUM_RETNET_IN_DNTX <- x
 NUM_RETNET_ENRICH_PVAL= dhyper(x, m, n, k) %>% formatC(format = 'e', digits = 1)
-
+write(ret_net_genes[ret_net_genes%in% genes_with_novel_iso], file = 'clean_data/ret_net_genes_in_paneye.txt')
 save(list= ls()[grepl('NUM_', ls())], file = files$paper_numbers_rdata)
 
 

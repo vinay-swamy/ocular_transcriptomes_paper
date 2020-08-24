@@ -1,14 +1,16 @@
 ---
-title: 'A short read *de novo* transcriptome pipeline optimized by long reads reveals novel developmentally regulated gene isoforms and disease targets in hundreds of eye samples'
+title: 'A short-read *de novo* transcriptome construction pipeline optimized by long reads reveals novel developmentally regulated gene isoforms and disease targets in hundreds of eye samples'
 author:
-  - Vinay Swamy:
+  - Vinay S. Swamy:
       institute: bg
-  - Temesgen Fufa:
+  - Temesgen D. Fufa:
       institute: mgog
-  - Robert Hufnagel:
+  - Robert B. Hufnagel:
       institute: mgog
-  - David McGaughey:
+  - David M. McGaughey:
       institute: bg
+      correspondence: "yes"
+      email: mcgaugheyd@mail.nih.gov
 institute:
   - bg: Bioinformatics Group, Ophthalmic Genetics & Visual Function Branch, National Eye Institute, Institutes of Health
   - mgog: Medical Genetics and Ophthalmic Genomics Unit, National Eye Institute, National Institutes of Health
@@ -79,13 +81,13 @@ body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(sub
 
 ## Abstract
 
-|              *De novo* transcriptome construction from short read RNA-seq is a common method for reconstructing previously annotated and novel mRNA transcripts within a given sample. However, this process lacks a way to be evaluated as it is difficult to obtain a ground-truth measure of transcript expression. With advances in third generation sequencing, full length transcripts of whole transcriptomes can be accurately sequenced to generate a ground-truth transcriptome, but is significantly more expensive than short read sequencing. We generate long read Pacbio and short read Illumina RNA sequencing data from an induced pluripotent stem cell derived retinal pigmented epithelium (iPSC-RPE) cell line. We use the long read data to identify simple but powerful metrics for assesing *de novo* transcriptome construction and optimize a short read based *de novo* transcriptome construction pipeline. We then apply this this pipeline to construct transcriptomes for `r toString(NUM_EYE_SAMPLES)` short read RNA-seq samples originating from healthy adult and fetal retina, cornea, and RPE to generate the first pan-eye transcriptome annotation. We identify hundreds of novel gene isoforms and examine their significance in the context of ocular biology and disease.
+|              *De novo* transcriptome construction from short-read RNA-seq is a common method for reconstructing previously annotated and novel mRNA transcripts within a given sample. However, this process lacks a way to be evaluated as it is difficult to obtain a ground-truth measure of transcript expression. With advances in third generation sequencing, full length transcripts of whole transcriptomes can be accurately sequenced to generate a ground-truth transcriptome— but it is significantly more expensive than short-read sequencing. We generated long-read Pacbio and short-read Illumina RNA sequencing data from an induced pluripotent stem cell- derived retinal pigmented epithelium (iPSC-RPE) cell line. We use the long-read data to identify simple but powerful metrics for assesing *de novo* transcriptome construction and to optimize a short-read based *de novo* transcriptome construction pipeline. We then apply this this pipeline to construct transcriptomes for `r toString(NUM_EYE_SAMPLES)` short-read RNA-seq samples originating from healthy adult and fetal retina, cornea, and RPE to generate the first pan-eye transcriptome annotation. We identify hundreds of novel gene isoforms and examine their significance in the context of ocular development and disease.
 
 ## Introduction
 
 |              The transcriptome is defined as the set of unique RNA transcripts expressed in a biological system. A single gene can have multiple distinct transcripts, or isoforms, and there are multiple biological processes that drive the formation of these isoforms including alternative promoter usage, alternative splicing, and alternative polyadenylation. Gene isoforms can have distinct and critical functions in biological processes like development, cell differentiation, and cell migration [-@dykes_hic2_2018], [-@trapnell_transcript_2010], [-@mitra_splicing_2020]. Alternative usage of isoforms has also been implicated in multiple diseases including cancer, cardiovascular disease, Alzheimer’s disease and diabetic retinopathy  [-@vitting-seerup_landscape_2017], [-@neagoe_ciprian_titin_2002], [-@mills_rna-seq_2013], [-@perrin_diabetic_2005].
 
-|              Accurate annotation of gene isoforms is fundamental for understanding their biological impact. For example, the Gencode human comprehensive transcript annotation (release 28) contains `r toString(NUM_PC_GC_TX)` protein coding and `r toString(NUM_NC_GC_TX)` noncoding transcripts across `r toString(NUM_PC_GC_GENE)` genes and `r toString(NUM_NC_GC_GENE)` pseudogenes, but this annotation is incomplete [-@frankish_gencode_2019], [-@zhang_incomplete_2020]. Therefore, identifying novel gene isoforms is a key step in the study of gene isoforms. Some of the first high throughput methods to find novel gene isoforms used short read (~100bp) RNA-seq to identify novel exon-exon junctions and novel exon boundaries based soley on RNA-seq coverage [-@nagalakshmi_transcriptional_2008]. More recently, several groups have developed specialized tools to use RNA-seq to reconstruct the whole transcriptome of a biological sample, dubbed *de novo* transcriptome construction [-@haas_novo_2013],[-@trapnell_transcript_2010], [-@pertea_stringtie_2015].
+|              Accurate annotation of gene isoforms is fundamental for understanding their biological impact. For example, the Gencode human comprehensive transcript annotation (release 28) contains `r toString(NUM_PC_GC_TX)` protein coding and `r toString(NUM_NC_GC_TX)` noncoding transcripts across `r toString(NUM_PC_GC_GENE)` genes and `r toString(NUM_NC_GC_GENE)` pseudogenes, but this annotation is incomplete [-@frankish_gencode_2019], [-@zhang_incomplete_2020]. Therefore, identifying novel gene isoforms is a key step in the study of gene isoforms. Some of the first high throughput methods to find novel gene isoforms used short-read (~100bp) RNA-seq to identify novel exon-exon junctions and novel exon boundaries based soley on RNA-seq coverage [-@nagalakshmi_transcriptional_2008]. More recently, several groups have developed specialized tools to use RNA-seq to reconstruct the whole transcriptome of a biological sample, dubbed *de novo* transcriptome construction [-@haas_novo_2013],[-@trapnell_transcript_2010], [-@pertea_stringtie_2015].
 
 |              *De novo* transcriptome construction uses short-read RNA-seq to reconstruct full-length mRNA transcripts. However, a large number of samples are necessary to overcome the noise and short-read lengths of this type of data. Because of increasingly inexpensive sequencing cost, datasets of the necessary size are now available. For example, one of the most comprehensive *de novo* transcriptome projects to date is CHESS, which uses the GTEx data set to construct *de novo* transcriptomes in over 9000 RNA-seq samples from `r toString(NUM_BODY_TISSUES)` distinct body locations to create a comprehensive annotation of mRNA transcripts across the human body [-@gtex_consortium_genetic_2017], [-@pertea_chess_2018]. However, since the GTEx dataset does not include samples from any ocular tissues, the CHESS database remains an incomplete annotation of the human transcriptome.
 
@@ -102,7 +104,7 @@ body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(sub
 ![](../clean_data/plots/DNTX_flowchar_rework_final.png)
 
 ::: {custom-style="CustomCaption"}
-Figure 1. Workflow for long read informed *de novo* transcriptome construction and analysis.
+Figure 1. Workflow for long-read informed *de novo* transcriptome construction and analysis.
 :::
 
 ## Generation of PacBio long-read RNA sequencing data and Illumina short-read RNA sequencing data
@@ -113,7 +115,7 @@ Figure 1. Workflow for long read informed *de novo* transcriptome construction a
 
 ## Code availability and software versions.
 
-|              To improve reproducibility, all code used for both the anaylzing the data and generating the figures for this paper was written as multiple Snakemake pipelines. Each Snakefile contains the exact parameters for all tools and scripts used in each analysis. [-@koster_snakemakescalable_2012] All code (and versions) used for this project is publicly available in the following github repositories: <https://github.com/vinay-swamy/ocular_transcriptomes_pipeline> (main pipeline), <https://github.com/vinay-swamy/ocular_transcriptomes_longread_analysis> (long-read analysis pipeline), <https://github.com/vinay-swamy/ocular_transcriptomes_paper> (figures and tables for this paper), <https://github.com/vinay-swamy/ocular_transcriptomes_shiny> (webapp). Additionally, all Snakefiles are included as supplementary data.(supplementary data files 1-4)
+|              To improve reproducibility, all code used for both the anaylzing the data and generating the figures for this paper was written as multiple Snakemake pipelines. Each Snakefile contains the exact parameters for all tools and scripts used in each analysis. [-@koster_snakemakescalable_2012] All code (and versions) used for this project is publicly available in the following github repositories: <https://github.com/vinay-swamy/ocular_transcriptomes_pipeline> (main pipeline), <https://github.com/vinay-swamy/ocular_transcriptomes_longread_analysis> (long-read analysis pipeline), <https://github.com/vinay-swamy/ocular_transcriptomes_paper> (figures and tables for this paper), <https://github.com/vinay-swamy/ocular_transcriptomes_shiny> (webapp). Additionally, all Snakefiles are included as supplementary data.(supplementary data files 1-3)
 
 ## Analysis of long-read data
 
@@ -166,7 +168,7 @@ $Construction\ Accuracy = \frac {short\ read \ transcriptome\ \cap \ long\ read\
 
 # Results
 
-## Long-read Pacbio RNA sequencing guides short read *de novo* transcriptome construction
+## Long-read Pacbio RNA sequencing guides short-read *de novo* transcriptome construction
 
 |              To evaluate the accuracy of short-read transcriptome construction, we first generated PacBio long-read RNA-seq data and Illumina short-read RNA-seq data from iPSC-RPE. These cells were differentiated using an optimized protocol, and thus minimal biological variation is expected  [-@blenkinsop_human_2015], [-@maruotti_small-moleculedirected_2015]. We used these sequencing data to construct a long-read transcriptome and a short-read transcriptome. In our long-read transcriptome we found `r toString(NUM_TOTAL_LR_TX)` distinct transcripts, and in our short-read transcriptome `r toString(NUM_TOTAL_SR_TX)` distinct transcripts
 
@@ -476,7 +478,7 @@ fp
 Figure 5 Differential Transcript usage during Retinal Development. A) Volcano Plot of tested transcripts B) Dot plot for gene set enrichment analysis C) Heatmap of hiearchical clustering of transcripts with DTU associated with eye development D) Transcript models for *MYO9A*, a gene undergoing DTU F) FIU change in *MYO9A* FIU across development F) average log-transformed TPM expression of *MYO9A* across retinal development 
 :::
 
-|              We analyzed `r toString(NUM_DEVRET_SAMPLES)` samples across `r toString(NUM_DEVRET_TIMESPOINTS)` developmental days post fertilization and found `r toString(NUM_DTU_TX)` transcripts across `r toString(NUM_DTU_GENE)` genes displaying DTU (Fig 5A). We found that genes involved in DTU are enriched(qvalue <.05) for genes related to eye and neurological development.(Fig 5B), and that hierarchical clustering of DTU transcripts generates an early stage and late stage cluster.(Fig 5C) One of these genes,*MYO9A*, is a classical example of DTU. *MYO9A* is associated with the visual perception GO term, plays a role in ocular development, and has been associated with ocular disease [-@gorman_cloning_1999]. While expression of *MYO9A* remains relatively unchanged across development, expression of two of its associated isoforms in fetal retina (Fig 5D) changes dramatically during development: a novel isoform is highly expressed early during development, but switched to the canonical isoform later in development (Fig 5E,F). A full list of genes and transcripts displaying  DTU is available in Supplemental data.
+|              We analyzed `r toString(NUM_DEVRET_SAMPLES)` samples across `r toString(NUM_DEVRET_TIMESPOINTS)` developmental days post fertilization and found `r toString(NUM_DTU_TX)` transcripts across `r toString(NUM_DTU_GENE)` genes displaying DTU (Fig 5A). We found that genes involved in DTU are enriched(qvalue <.05) for genes related to eye and neurological development (Fig 5B), and that hierarchical clustering of DTU transcripts generates an early stage and late stage cluster (Fig 5C). One of these genes,*MYO9A*, is a classical example of DTU. *MYO9A* is associated with the visual perception GO term, plays a role in ocular development, and has been associated with ocular disease [-@gorman_cloning_1999]. While expression of *MYO9A* remains relatively unchanged across development, expression of two of its associated isoforms in fetal retina (Fig 5D) changes dramatically during development: a novel isoform is highly expressed early during development, but switched to the canonical isoform later in development (Fig 5E,F). This novel isoform contains a novel exon within the protein coding region of the isoform as well as novel last exon extending the 3’ UTR (Fig 5d).A full list of genes and transcripts displaying  DTU is available in Supplemental data (supplemental data 4).
 
 ## *De novo* transcriptomes allow for a more precise variant prioritization.
 
@@ -573,7 +575,7 @@ Figure 6. Transcript models for selected Isoforms of *ABCA4* along with location
 
 |              These variants were spanned by three distinct novel isoforms with two containing open reading frames (ORFs) encoding only the carboxy-terminus of the canonical protein isoform, and one noncoding spanning the proximal half of the canonical isoform (Fig 6).  *ABCA4* expression and function has also been observed in RPE [-@lenis_expression_2018]. However, we did not observe these transcripts in RPE, suggesting that these pathogenic variants are primarily affecting retinal-specific *ABCA4* transcripts. We note that these transcripts have not been experimentally validated.
 
-|              To further highlight the potential importance of *de novo* transcriptomes for future genetic tests we determined how many genes associated with retinal disease from RetNet have novel isoforms (sph.uth.edu/retnet/). We found that within the set of genes with novel isoforms, there is significant enrichment of retinal disease genes  (hypergeometric pvalue = `r toString(NUM_RETNET_ENRICH_PVAL)`), with `r toString(NUM_RETNET_IN_DNTX)` out of `r toString(NUM_RET_NET_GENES)` RetNet genes having a novel isoform. A full list of these genes is available in the Supplementary data.
+|              To further highlight the potential importance of *de novo* transcriptomes for future genetic tests we determined how many genes associated with retinal disease from RetNet have novel isoforms (sph.uth.edu/retnet/). We found that within the set of genes with novel isoforms, there is significant enrichment of retinal disease genes  (hypergeometric pvalue = `r toString(NUM_RETNET_ENRICH_PVAL)`), with `r toString(NUM_RETNET_IN_DNTX)` out of `r toString(NUM_RET_NET_GENES)` RetNet genes having a novel isoform. A full list of these genes is available in the Supplementary data(supplemental data 5).
 
 ## A companion visualization tool enables easy use of *de novo* transcriptomes
 
