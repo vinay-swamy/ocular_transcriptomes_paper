@@ -99,6 +99,12 @@ where inclusion reads are all reads spanning an exon’s splice junctions, and e
 
 # Results 
 
+
+## Long Read Pacbio RNA sequencing guides *de novo* transcriptome construction
+In order to determine the accuracy of short read transcriptome construction, we first generated PacBio long read RNA-seq data from a stem cell derived RPE cell line.  
+
+
+
 ## A rigorous analysis pipeline finds thousands of novel gene isoforms
 
 ```{r}

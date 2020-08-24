@@ -1,8 +1,8 @@
 '''
 Snakemake wrapper to generate data for occular_transcriptomes_paper
-
 '''
-
+import yaml
+import re
 def readSampleFile(samplefile):
     # returns a dictionary of dictionaries where first dict key is sample id and second dict key are sample  properties
     res={}
@@ -26,146 +26,205 @@ def subtissue_to_sample(subtissue, sample_dict):
     [res.append(f'salmon_experiment/quant/{subtissue}/{sample}/quant.sf') for sample in sample_dict.keys() if sample_dict[sample]['subtissue'] == subtissue ]
     return(res)
 
-
+files_yaml = config['files_yaml']
+with open(config['files_yaml']) as fyml:
+    files=yaml.load(fyml,Loader=yaml.FullLoader)
+fetal_retina_sample_table = readSampleFile(files['excluded_retina_sample_table'])
 salmon_version= config['salmon_version']
 R_version= config['R_version']
 bedtools_version= config['bedtools_version'] 
 TransDecoder_version=config['TransDecoder_version']
-
 # sd_salmonexp= readSampleFile('salmon_experiment/sampletabSE.tsv')
-
+with open(config['subtissue_file']) as stfl:
+    subtissues = [line.strip('\n') for line in stfl ]
 working_dir=config['working_dir']
+longread_dir = config['longread_dir']
 data_dir=config['data_dir']
 fql=config['fastq_path']
 sample_file=config['sample_file']
-gtf_file=data_dir + 'data/gtfs/all_tissues.combined.gtf'
-exon_classification_file=data_dir + 'data/rdata/novel_exon_classification.Rdata'
-gff3_file=data_dir + 'data/seqs/transdecoder_results/all_tissues.combined_transdecoderCDS.gff3'
-ref_gtf= data_dir + 'ref/gencode_comp_ano.gtf'
-tcons2mstrg=data_dir + 'data/gtfs/all_tissues.convtab'
+
+ref_gtf = files['ref_gtf']
 
 eye_tissues=['Retina_Adult.Tissue', 'Retina_Fetal.Tissue', 'RPE_Adult.Tissue', 'RPE_Fetal.Tissue', 'Cornea_Adult.Tissue', 'Cornea_Fetal.Tissue']
 
 rule all:
     input: 'notebooks/results_v2.html'
 
-rule transcriptome_pipeline_stats:
+rule calc_txome_tx_counts_and_mapping_Rates:
     input:  
-        t2m=tcons2mstrg,
-    params: 
-        tissue='RPE_Fetal.Tissue'
+        full_anno_gtf =files['anno_gtf'],
+        tcons2mstrg = files['tcons2mstrg']
+    params:
+        dntx_quant_path = files['dntx_quant_path']
     output: 
-        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',\
-        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',\
-        tx_counts= working_dir+'clean_data/all_gtfs_tx_counts.tab',\
-        clean_data= working_dir+'clean_data/rdata/transcriptome_pipeline_stats.Rdata'
+        DNTX_mr= files['DNTX_mr'],
+        gencode_mr= files['gencode_mr'],
+        gtf_tx_counts= files['gtf_tx_counts'],
+        txcounts_mr_rdata= files['txome_stats_rdata'], 
+        base_gtf_enst_tx_counts = 'clean_data/base_gtf_enst_tx_counts.tab',
+        union_enst_ids = 'clean_data/union_enst_ids.txt'
     shell:
         '''
         bash scripts/count_stats_from_files.sh \
+            {sample_file} \
             {data_dir} \
+            {params.dntx_quant_path} \
             {output.DNTX_mr} \
             {output.gencode_mr} \
-            {output.tx_counts}
+            {output.gtf_tx_counts} \
+            {output.base_gtf_enst_tx_counts} \
+            {output.union_enst_ids}
+
+        module load gffcompare/0.11.2
+        base_gtfs=`ls /data/swamyvs/ocular_transcriptomes_pipeline/data/gtfs/raw_tissue_gtfs/*combined.gtf | tr '\\n' ' '`
+        gffcompare -r {ref_gtf} -o clean_data/all_base_tx -T  $base_gtfs
+             
         module load {R_version}
         Rscript scripts/transcriptome_pipeline_stats.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
-            --sampleTableFile {sample_file}\
-            --anoGtfFile {gtf_file}\
-            --tcons2mstrgFile {input.t2m}\
-            --tissue {params.tissue}\
-            --gencodeMapRateFile {output.gencode_mr}\
-            --DNTXMapRateFile {output.DNTX_mr}\
-            --gtfTxCountFile {output.tx_counts}\
-            --cleanData {output.clean_data}
+            --filesYaml {files_yaml}
         '''
 
 rule summarizeBuildResults:
     input:
-        exon_class=exon_classification_file , 
-        tc2mstrg=tcons2mstrg ,gff3=gff3_file  
+        exon_class=files['exon_class_rdata'],
+        tc2mstrg=files['tcons2mstrg'],
+        full_anno_gtf =files['anno_gtf']
+    params: 
+        cds_gtf_dir = 'clean_data/CDS_gtf/', 
+        comp_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_comp.tracking',
+        distinct_cds_track = '/data/swamyvs/ocular_transcriptomes_paper/clean_data/CDS_gtf/CDS_distinct.tracking'
     output:
-        color_df=working_dir+ 'clean_data/rdata/tissue_to_colors.Rdata', 
-        plotting_data= working_dir+ 'clean_data/rdata/buildResultsSummary.Rdata'
+        color_mapping_rdata=files['color_mapping_rdata'],
+        build_results_rdata= files['build_results_rdata']
     shell:
         '''
+        module load gffcompare
+        rm -rf {params.cds_gtf_dir}
+        mkdir -p {params.cds_gtf_dir}
+        awk '$3 == "CDS"' {ref_gtf} > {params.cds_gtf_dir}/gencode_CDS.gtf
+        awk '$3 == "CDS"' {input.full_anno_gtf} > {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf
+        gffcompare --strict-match -p CDSID -o {params.cds_gtf_dir}/CDS_distinct {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf {params.cds_gtf_dir}/gencode_CDS.gtf
+        gffcompare --strict-match -r {params.cds_gtf_dir}CDS_distinct.combined.gtf -o {params.cds_gtf_dir}/CDS_comp {params.cds_gtf_dir}/alltissuegtf_cds_only.gtf   
+
         module load {bedtools_version}
         module load {R_version}
-        which R 
         Rscript scripts/summarize_build_results.R \
             --workingDir {working_dir}\
             --dataDir {data_dir}\
-            --exonClassFile {input.exon_class}\
-            --gtfFile {gtf_file}\
-            --sampleTableFile {sample_file}\
-            --gff3File {input.gff3}\
-            --tcons2mstrgFile {input.tc2mstrg}\
-            --colorMappingDf {output.color_df}\
-            --dataToPlot {output.plotting_data}
+            --compCDStrack {params.comp_cds_track} \
+            --distinctCDStrack {params.distinct_cds_track} \
+            --filesYaml {files_yaml}
+   
         '''
 
-
-rule paper_numbers_and_sup_figs:
-    input:
-        eye_gtfs=expand( data_dir+'data/gtfs/final_tissue_gtfs/{tissue}.gtf', tissue=eye_tissues), 
-        pan_body_gtf=gtf_file, 
-        DNTX_mr= working_dir + 'clean_data/DNTX_salmon_mapping_rates.tab',
-        gencode_mr= working_dir + 'clean_data/gencode_salmon_mapping_rates.tab',
-    params: 
-        final_gtf_dir = data_dir + 'data/gtfs/final_gtfs/', 
-        raw_gtf_dir = data_dir + 'data/gtfs/raw_tissue_gtfs/', 
-        ref_tx_exon_rdata = data_dir + 'rdata/all_ref_tx_exons.rdata', 
-        core_tight_file = data_dir + 'ref/core_tight.Rdata'
+rule summarize_long_read_results:
     output: 
-        pan_eye_gtf = 'clean_data/pan_eye_txome.combined.gtf', 
-        clean_data = working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata'
+        working_dir + 'clean_data/rdata/longread_summary.Rdata'
     shell:
         '''
-        module load gffcompare 
         module load {R_version}
-        gffcompare -r {ref_gtf} --strict-match -o clean_data/pan_eye_txome {input.eye_gtfs} 
-        Rscript scripts/paper_numbers_sup_figs.R \
-            --workingDir {working_dir} \
-            --dataDir {data_dir} \
-            --sampleTableFile {sample_file} \
-            --allTissueGtf {input.pan_body_gtf} \
-            --EyeOnlyGtf {output.pan_eye_gtf} \
-            --pathToRawGtfs {params.raw_gtf_dir} \
-            --allRefAno {params.ref_tx_exon_rdata} \
-            --coreTight {params.core_tight_file} \
-            --outNumFile {output.clean_data} \
-            --dntxMapRate {input.DNTX_mr} \
-            --gencodeMapRate {input.gencode_mr}
-
+        Rscript scripts/summarise_longread_results.R \
+            --longReadDir {longread_dir} \
+            --filesYaml {files_yaml}
         '''
+
 
 
 rule novel_isoforms_ocular_tissues:
-    input: quant = data_dir + 'data/all_tissue_quant.Rdata', gtf_ano_file = data_dir + 'data/gtfs/all_tissues.combined_NovelAno.gtf'
-    output: outdata= working_dir + 'clean_data/rdata/novel_isoforms.Rdata'
+    input: 
+        quant = files['all_tissue_quant'], 
+        exon_class_rdata = files['exon_class_rdata'],
+        gtf_ano_file = files['anno_gtf']
+    output: 
+        outdata= files['novel_isoform_analysis_rdata']
     shell:
         '''
         module load {R_version}
         Rscript scripts/novel_isoforms_ocular_tissues.R \
             --workingDir {working_dir} \
             --dataDir {data_dir} \
-            --novelExonClassFile {exon_classification_file} \
-            --gtfFile {input.gtf_ano_file} \
-            --sampleTableFile {sample_file} \
-            --tcons2mstrgFile {tcons2mstrg} \
-            --quantFile {input.quant} \
-            --cleanData {output.outdata}
+            --filesYaml {files_yaml}
             
         '''
 
-# rule novel_tx_in_fetal_retina_analysis:
-#     input:eiad='clean_data/EiaD_quant.Rdata', tc2mstrg=tcons2mstrg , gff3=gff3_file
-#     output:working_dir+ 'clean_data/rdata/fetal_novel_de_results.Rdata',working_dir+ 'clean_data/fetal_de_novel_tx.txt', working_dir+ 'clean_data/rdata/fetal_novel_de_hm.Rdata'
+# rule process_VEP:
+#     input: 
+#         expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = subtissues)
+#     output: 
+#         example_variant_results = files['variant_results_rdata']
 #     shell:
 #         '''
 #         module load {R_version}
-#         Rscript scripts/analyze_novel_tx_fetal_retina.R {working_dir} {sample_file} {input.eiad} {input.tc2mstrg} {gtf_file} {input.gff3} {output}
+#         Rscript scripts/process_VEP.R \
+#         --dataDir {data_dir} \
+#         --filesYaml {files_yaml}  
 #         '''
+
+rule predict_intronic_variants:
+    input: 
+        expand(data_dir + 'data/vep/{subtissue}/variant_summary.txt', subtissue = ['Retina_Adult.Tissue', 'Retina_Fetal.Tissue'])
+    output: 
+        example_variant_results = files['intron_variant_analysis_rdata']
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/intron_variant_analysis.R  \
+            --workingDir {working_dir} \
+            --dataDir {data_dir} \
+            --fileYaml {files_yaml}
+
+        '''
+
+rule run_salmon_excluded_samples:
+    input: 
+        fastqs=lambda wildcards: [fql+'fastq_files/{}_1.fastq.gz'.format(wildcards.sampleID),fql+'fastq_files/{}_2.fastq.gz'.format(wildcards.sampleID)] if fetal_retina_sample_table[wildcards.sampleID]['paired'] else fql+'fastq_files/{}.fastq.gz'.format(wildcards.sampleID),
+        index=f'{data_dir}data/salmon_indices/Retina_Fetal.Tissue'
+    params:
+        cmd = lambda wildcards: salmon_input(wildcards.sampleID, fetal_retina_sample_table, fql),
+        outdir = lambda wildcards: f'salmon_quant/missing_retina_samples/{wildcards.sampleID}/'
+    output:
+        quant = 'salmon_quant/missing_retina_samples/{sampleID}/quant.sf'
+    shell:
+        '''
+        id={wildcards.sampleID}
+        module load {salmon_version}
+        salmon quant -p 8 -i {input.index} -l A --gcBias --seqBias  --validateMappings {params.cmd} -o {params.outdir}
+        '''
+
+rule fetal_retina_diffexp:
+    input: 
+        expand('salmon_quant/missing_retina_samples/{sampleID}/quant.sf', sampleID = fetal_retina_sample_table.keys())
+    output:
+        files['fetal_retina_diffexp_results']
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/fetal_retina_dev_diffexp.R {files_yaml}
+        '''
+
+rule process_hmmer:
+    input:
+        data_dir + 'data/novel_loci/hmmer/seq_hits.tsv'
+    output:
+        working_dir + 'clean_data/rdata/hmmer_results.Rdata'
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/process_HMMER.R \
+            --dataDir {data_dir} \
+            --filesYaml {files_yaml}
+        '''
+
+
+rule CAGE_polyA_phlylop_fig:
+    output: files['CAGE_polyA_rdata']
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/CAGE_polyA_distance.R --dataDir {data_dir} --filesYaml {files_yaml}
+        '''
 
 '''
 Get Nv tx >  remove from fasta > build index
@@ -174,91 +233,42 @@ tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.
 
 '''
 
+rule paper_numbers_and_sup_figs:
+    input:
+        files['pan_eye_gtf'],
+        files['anno_gtf'],
+        files['DNTX_mr'],
+        files['gencode_mr'],
+        files['build_results_rdata'],
+        files['txome_stats_rdata'], 
+        files['novel_isoform_analysis_rdata'],
+        files['long_read_results_rdata'],
+        #files['variant_results_rdata'],
+        files['intron_variant_analysis_rdata'],
+        files['fetal_retina_diffexp_results'], 
+        files['CAGE_polyA_rdata']
+    output: 
+        clean_data = files['paper_numbers_rdata']
+    shell:
+        '''
+        module load {R_version}
+        Rscript scripts/paper_numbers_sup_figs.R \
+            --workingDir {working_dir} \
+            --dataDir {data_dir} \
+            --filesYaml {files_yaml}
+        '''
+
+
 
 rule knit_notebooks:
-    input: \
-    working_dir + 'clean_data/rdata/buildResultsSummary.Rdata', \
-    working_dir + 'clean_data/rdata/transcriptome_pipeline_stats.Rdata', \
-    working_dir + 'clean_data/rdata/novel_isoforms.Rdata', \
-    working_dir + 'clean_data/rdata/paper_numbers_and_sup_figs.Rdata' 
-    #working_dir + 'clean_data/rdata/fetal_novel_de_results.Rdata', \
-    #working_dir + 'clean_data/rdata/fetal_novel_de_hm.Rdata',\
-    output: 'notebooks/results_v2.html'
+    input: 
+        files['paper_numbers_rdata'],
+        #files['hmmer_results']
+    output: 
+        'notebooks/results_v2.html'
     shell:
         '''
         module load {R_version}
         Rscript ~/scripts/render_rmd.R notebooks/results_v2.Rmd
         '''
-
-
-
-# rule setup_salmon_exp:
-#     output: lens='salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab', ret='salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab', st= 'salmon_experiment/sampletabSE.tsv'
-#     shell:
-#         '''
-#         tail -n+2  /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Retina_Fetal.Tissue/SRS897012/quant.sf | grep Retina_Fetal.Tissue - | cut -f1 > salmon_experiment/Retina_Fetal.Tissue_tx_to_remove.tab
-
-#         tail -n+2   /data/swamyvs/eyeintegration_splicing/data/salmon_quant/Lens_Stem.Cell.Line/SRS1747747/quant.sf | grep  Lens_Stem.Cell.Line  - | cut -f1 > salmon_experiment/Lens_Stem.Cell.Line_tx_to_remove.tab
-
-#         grep Retina_Fetal.Tissue sampleTableFull.tsv > salmon_experiment/sampletabSE.tsv
-#         grep Lens_Stem.Cell.Line sampleTableFull.tsv >> salmon_experiment/sampletabSE.tsv
-
-#         '''
-
-
-# rule build_salmon_index_no_novel:
-#     input:tx_to_remove='salmon_experiment/{tissue}_tx_to_remove.tab', fasta= data_dir + 'data/seqs/{tissue}_tx.fa'
-#     output:outfasta='salmon_experiment/{tissue}.fa', index= directory('salmon_experiment/{tissue}')
-#     shell:
-#         ''' 
-#         python3 scripts/remove_entries_from_fasta.py {input.fasta} {input.tx_to_remove} {output.outfasta}
-#         module load {salmon_version}
-#         salmon index -t {output.outfasta} -i {output.index} --type quasi --perfectHash -k 31
-#         '''
-
-# rule run_salmon:
-#     input: fastqs=lambda wildcards: [fql+f'fastq_files/{wildcards.sampleID}_1.fastq.gz',fql+f'fastq_files/{wildcards.sampleID}_2.fastq.gz'] if sd_salmonexp[wildcards.sampleID]['paired'] else fql+f'fastq_files/{wildcards.sampleID}.fastq.gz',\
-#         index='salmon_experiment/{tissue}'
-#     params: cmd=lambda wildcards: salmon_input(wildcards.sampleID,sd_salmonexp,fql),\
-#      outdir=lambda wildcards: f'salmon_experiment/quant/{wildcards.tissue}/{wildcards.sampleID}'
-#     output: 'salmon_experiment/quant/{tissue}/{sampleID}/quant.sf'
-#     shell:
-#         '''
-#         id={wildcards.sampleID}
-#         module load {salmon_version}
-#         salmon quant -p 8 -i {input.index} -l A --gcBias --seqBias --validateMappings {params.cmd} -o {params.outdir}
-#         '''
-
-
-
-# rule ORF_exp:
-#     input:gtf= data_dir + 'data/gtfs/raw_tissue_gtfs/Retina_Fetal.Tissue.combined.gtf'
-#     output:'trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3'
-#     shell:
-#         '''
-#         rm -rf TransDecoder
-#         git clone https://github.com/TransDecoder/TransDecoder.git
-#         cd TransDecoder
-#         module load {TransDecoder_version}
-#         mkdir -p ../trandecode_exp/tr_dec
-#         ./util/gtf_genome_to_cdna_fasta.pl {input.gtf} ../ref/gencode_genome.fa > transcripts.fasta
-#         ./util/gtf_to_alignment_gff3.pl {input.gtf}> transcripts.gff3
-#         TransDecoder.LongOrfs -t tran scripts.fasta
-#         TransDecoder.Predict --single_best_only -t transcripts.fasta
-#         ./util/cdna_alignment_orf_to_genome_orf.pl \
-#             transcripts.fasta.transdecoder.gff3 \
-#             transcripts.gff3 \
-#             transcripts.fasta > ../trandecode_exp/tr_dec/all_Retina_Fetal.Tissue_tx.gff3
-#         '''
-
-
-# rule gffcompare_all:
-#     output:'gffcomp_test/all_samples.combined.gtf'
-#     shell:
-#         '''
-#         module load gffcompare 
-#         input=`ls /data/swamyvs/eyeintegration_splicing/st_out/*.gtf | tr '\\n' ' '`
-#         gffcompare -r /data/swamyvs/ref/gencode_comp_ano.gtf -o gffcomp_test/all_samples $input
-
-#         '''
 
