@@ -1,3 +1,4 @@
+## this script is supposed to run as part of the Snakefile, so no working directory will be specified
 library(tidyverse)
 library(data.table)
 library(tximport)
@@ -237,9 +238,10 @@ vp_data <- vp_data %>% mutate(sig = ifelse(adj.P.Val < min_qval & abdiff >= piu_
     arrange(sig)
 
 vp <- ggplot(vp_data) +
-    geom_scattermore(aes(x=piu_diff, y=qval, color = sig), pch = '.')+
-    scale_color_manual(values = c( 'DTU'= 'red', 'NOT DTU'='lightgrey'))+
-    #scale_alpha_manual(values =  c( 'DTU'= 1, 'NOT DTU'=1))+
+    geom_scattermore(aes(x=piu_diff, y=qval, color = sig), pointsize = 0)+
+    scale_color_manual(values = c( 'DTU'= 'red', 'NOT DTU'='lightgrey'),)+
+    guides(color = guide_legend(title = '', override.aes = list(pointsize = 3)))+
+    scale_alpha_manual(values =  c( 'DTU'= 1, 'NOT DTU'=1))+
     ylab('-log2(adjusted p value)') + 
     xlab('change in fraction isoform usage')+
     #ggtitle('Differentially expressed transcripts \nwith differential transcript usage(DTU)')+
@@ -250,7 +252,7 @@ vp <- ggplot(vp_data) +
 
 
 write(all_dtu_genes, '/tmp/sdfsdfg3', sep = '\n')
-system2('Rscript', args = '~/scripts/enrichGO.R /tmp/sdfsdfg3  /tmp/gse3')
+system2('Rscript', args = 'scripts/enrichGO.R /tmp/sdfsdfg3  /tmp/gse3') # in repo/scripts/
 gse <- readRDS('/tmp/gse3')
 
 sz <- 15
@@ -273,10 +275,13 @@ add_newline <- function(str){
     str_list <- str_split(str, ' ') %>% .[[1]]
     split_val <- {length(str_list)/2 } %>% trunc
     paste0(c( paste(str_list[1:split_val], collapse = ' ') , 
-              '-\n', 
+              '\n', 
               paste(str_list[(split_val+1) : length(str_list)], collapse = ' ') 
     ), collapse = '')
 }
+## pulled from clusterProfiler package
+## Note 03/2021: running on a fresh R installation, output of cluster profiler script is now a
+## an S4 object,  changed fortify command below. May cause a problem if running in biowulf
 mod_dotplot_internal <- function(object, x = "geneRatio", color = "p.adjust",
                                  showCategory=10, size=NULL, split = NULL,
                                  font.size=12, title = "", orderBy="x", decreasing=TRUE) {
@@ -302,7 +307,8 @@ mod_dotplot_internal <- function(object, x = "geneRatio", color = "p.adjust",
             size  <- "Count"
     }
     
-    df <- fortify(object, showCategory = showCategory, split=split)
+    df <- fortify(object@result, showCategory = showCategory, split=split)
+    #View(df)
     ## already parsed in fortify
     ## df$GeneRatio <- parse_ratio(df$GeneRatio)
     
@@ -312,17 +318,19 @@ mod_dotplot_internal <- function(object, x = "geneRatio", color = "p.adjust",
     }
     
     if (orderBy == "x") {
-        df <- dplyr::mutate(df, x = eval(parse(text=x)))
+        df <- dplyr::mutate(df, x = object@result$GeneRatio %>% str_split('/') %>% do.call(rbind,.) %>% apply(2, as.numeric) %>% {.[,1]/.[,2]} )
     }
     
     idx <- order(df[[orderBy]], decreasing = decreasing)
     df$Description <- sapply(df$Description , add_newline)
     df$Description <- factor(df$Description, levels=rev(unique(df$Description[idx])))
-    ggplot(df, aes_string(x=x, y="Description", size=size, color=colorBy)) +
+    ggplot(df, aes_string(x="x", y="Description", size=size, color=colorBy)) +
         geom_point() +
         scale_color_continuous(low="red", high="blue", name = color, guide=guide_colorbar(reverse=TRUE)) +
         ## scale_color_gradientn(name = color, colors=sig_palette, guide=guide_colorbar(reverse=TRUE)) +
-        ylab(NULL) + ggtitle(title) + theme_minimal(font.size) + scale_size(range=c(3, 8))
+        xlab('GeneRatio') +
+        ylab(NULL) + ggtitle(title) + theme_minimal(font.size) + scale_size(range=c(3, 8)) +
+        theme(axis.text.y = element_text(size=8))
     
 }
 
@@ -386,7 +394,7 @@ ha <- HeatmapAnnotation(`Photoreceptor\nDevelopment` = pr_gene_table_long$`photo
 
 
 heatmap_fe <- Heatmap(dtu_mat, col=cf, show_row_dend = F, show_row_names = F,cluster_columns = T , cluster_rows = T,
-              name = 'FIU', right_annotation = ha)
+              name = 'FIU', right_annotation = ha, column_names_gp = gpar(fontsize=10) )
 
 gghm <- as.ggplot(heatmap_fe)
 
@@ -414,14 +422,14 @@ refid2dntx <-conv_tab %>%
 
 
 
-plot_piu_bar <- function(gene, black_list=''){
+plot_piu_bar <- function(gene,white_list, black_list=''){
     
     #tx_piu_filter <- tx_piu %>% inner_join(t2g,.) %>%  filter(gene_name == gene) %>% 
     #group_by(gene_name) %>% do(custom_filter_df (.))
     piu <- tx_piu %>% 
         inner_join(t2g,.) %>%  
         filter(gene_name == gene, 
-               transcript_id %in% all_dtu_tx,
+               transcript_id %in% white_list,
         ) %>% 
         select(-gene_name) %>% 
         gather(key = 'sample', value = 'piu', -transcript_id) %>% 
@@ -530,17 +538,22 @@ draw_all_transcripts_static <- function(gene, gtf,keep_tx, black_list = ''){
 }
 
 df <- conv_tab %>% inner_join(t2g) %>% inner_join(all_dtu) %>% inner_join(refid2dntx) %>% 
-    filter(class_code != '=', gene_name %in% pr_genes)
+    filter(class_code != '=', 
+           #gene_name %in% pr_genes
+           )
 #t_gene <- unique(df$gene_name)[8]#MYO9A 
-t_gene <-  "MYO9A"
+#1 DNTX_00140848 LRP2      ENST00000263816.7
+#2 DNTX_00142728 LRP2      DNTX_00142728    
+#3 DNTX_00140849 LRP2      DNTX_00140849   
+t_gene <-  "LRP2"
 #gm_fetret <- draw_all_transcripts_static(t_gene , gtf, all_dtu_tx, black_list = 'DNTX_00080651')
-piu_fetret <- plot_piu_bar(t_gene, black_list = 'DNTX_00080651')
+piu_fetret <- plot_piu_bar(t_gene,white_list =c('DNTX_00142728','DNTX_00140848' ),  black_list = 'DNTX_00080651')
 
 ###new code 
 library(DBI)
 db_name <- '/data/swamyvs/ocular_transcriptomes_pipeline/data/shiny_data/app_data/DNTX_db.sql'
 con <- dbConnect(RSQLite::SQLite(),db_name)
-keep_tx <- all_dtu_tx
+keep_tx <- c('DNTX_00142728','DNTX_00140848')
 pretty_keep_tx <- filter(refid2dntx, transcript_id %in% keep_tx) %>% pull(pretty_txid) %>% unique
 s_gtf <- con %>% tbl('plotting_gtf') %>% filter(gene_name == t_gene) %>% collect %>% filter(transcript_id %in% pretty_keep_tx)
 
@@ -579,8 +592,32 @@ c_merge <- function(mat){
 
 
 
+simple_scale_introns <- function(df, sf){
+    df <- df %>% mutate(xlength = Xmax-Xmin)
+    exon_length <- mean(df$xlength)
+    intron_length <- exon_length*sf
+    new_xmin = rep(-1, nrow(df))
+    new_xmax  = rep(-1, nrow(df))
+    
+    new_xmin[1] <- 0
+    new_xmax[1] <- exon_length
+    for (i in 2:nrow(df)){
+        if (df$start[i] == df$end[(i-1)] + 1) {
+            new_xmin[i] = new_xmax[(i-1)]
+            new_xmax[i] = new_xmin[i] + exon_length
+        }else{
+            new_xmin[i] = new_xmax[(i-1)] + intron_length
+            new_xmax[i] = new_xmin[i] + exon_length
+        }
+    }
+    df <- df %>% mutate(Xmin = new_xmin, Xmax = new_xmax)
+    return(df)
+}
+
+
 draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
-    #dynamically scale introns, because it doesnt work well precopmuting it for genes with a lot of exons
+    #manually scale intron and exons, because it doesnt work well precopmuting it for genes with a lot of exons
+    # original code dervied from webapp
     gtf_gene <- filter(gtf, gene_name == gene, transcript_id %in% keep_tx, !transcript_id %in% black_list)
     distinct_exons <- gtf_gene %>% filter(type == 'exon') %>% 
         select(seqid, strand, start, end, Xmin, Xmax) %>% 
@@ -590,38 +627,7 @@ draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
         mutate(id= as.character(1:nrow(.))) %>% 
         select(-length)
     
-    fin <- distinct_exons %>% select(Xmin, Xmax, id) %>% c_merge %>% 
-        mutate(length = mean(Xmax-Xmin))
-    
-    
-    gap=mean(fin$length)/g
-    min_igap <- {fin$Xmin[2:nrow(fin)] - fin$Xmax[1:(nrow(fin )-1)]}
-    min_igap[min_igap<0] <- -Inf
-    min_igap_fail <-  which(min_igap>gap)
-    for(idx in min_igap_fail){
-        fin_idx= idx+1
-        #if(fin[fin_idx,'length'] >=gap){ gap <- fin[fin_idx,'length']+gap  }
-        delta = gap- min_igap[idx]
-        if(delta>0) print('MOOOOOO')
-        nfin <- nrow(fin)
-        fin[fin_idx:nfin,'Xmin'] <- fin[fin_idx:nfin,'Xmin']+delta
-        fin[fin_idx:nfin,'Xmax'] <- fin[fin_idx:nfin,'Xmax']+delta
-        
-    }
-    correct <-  fin %>% 
-        filter(!grepl('-',id))
-    to_correct <-  fin %>% 
-        filter(grepl('-',id)) %>%  
-        mutate(id= str_split(id, '-')) %>% 
-        unnest(id) %>% 
-        rename(new_xmin = Xmin, new_xmax = Xmax) %>% 
-        inner_join(distinct_exons) 
-    
-    
-    res <- lapply(unique(to_correct$new_xmin), function(x) filter(to_correct, new_xmin == x) %>% 
-                      mutate(d=(min(Xmin)-x), Xmin =Xmin - d , Xmax =Xmax -d)) %>% bind_rows %>% 
-        select(all_of(colnames(correct)))
-    all_correct <- bind_rows(correct, res, ) %>% arrange(Xmin) %>% select(-length)
+    all_correct <- simple_scale_introns(distinct_exons, sf=sf)
     
     
     all_plot_data <- distinct_exons %>% 
@@ -630,32 +636,26 @@ draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
         inner_join(gtf_gene %>% select(-Xmin, -Xmax, -length)) %>% 
         mutate(`exon type`=ifelse(is.na(novel_exon_id), 'ref', 'novel')) 
     plot_data <- all_plot_data %>% filter(type == 'exon') %>% mutate(exon_number = as.numeric(exon_number))
-    plot_data$Xmax <- plot_data$Xmax-sf
-    plot_data$Xmin[3:nrow(plot_data)] <- plot_data$Xmin[3:nrow(plot_data)] -sf
-    j <- min(plot_data$Xmin)
-    plot_data <- plot_data %>% mutate(Xmin = Xmin-j, Xmax = Xmax-j)
+
     color_list <- c('black', 'red')
     names(color_list) <- c('ref', 'novel')
-    color_list <- c('red', 'blue', 'green', 'purple')
+    color_list <- c('red', 'blue', 'darkred', 'purple')
     names(color_list) <- unique(plot_data$transcript_id) %>% {c(gene, .[grepl('ENST',.)], .[grepl('DNTX',.)] )}
+    plot_data$duptxid <- plot_data$transcript_id
+    m <- replace_na(plot_data$novel_exon_id == 'nvl_exon120703', F)
+    plot_data[m, 'duptxid'] = 'nvl_exon120703'
     plot <- ggplot(data = plot_data) +
-        #geom_hline(yintercept = 0, colour='black', size=2)+
-        #geom_rect_interactive(aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=`exon type`, tooltip=ttip))+
-        geom_rect( aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=transcript_id))+
+        geom_rect( aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=duptxid))+
         scale_fill_manual(values = color_list) +
         facet_wrap(~transcript_id, ncol=1)+
-        #ggtitle(gene) +
+        ggtitle(gene)+
         theme_void() +
-        theme( strip.background = element_blank(),strip.text.x = element_blank(), legend.position = 'none')
-        #      legend.title = element_text(size=80), legend.text =element_text(size = 70))
-    #print(nchar(plot$data$transcript_id))
-    #return(plot)
-    #girafe(ggobj = plot, width_svg = wsvg, height_svg = hsvg)
-    #return(girafe(ggobj = plot, width_svg = wsvg, height_svg = hsvg))
+        theme( strip.background = element_blank(),strip.text.x = element_blank(), legend.position = 'none', 
+               plot.title = element_text(hjust = 0.5))
     return(plot)
     
 }
-gm_fetret <- draw_all_transcripts_csm(t_gene,s_gtf, pretty_keep_tx, 1, black_list = 'DNTX_00080651', sf=18 )
+gm_fetret <- draw_all_transcripts_csm(t_gene,s_gtf, pretty_keep_tx, 1, black_list = 'DNTX_00080651', sf=1)
 ####
 bdes <- '
 AB
@@ -676,10 +676,10 @@ fp <- top/bottom +
     plot_layout(design = full_des) +
     plot_annotation(tag_levels = 'A') &  
     theme(legend.margin = margin(0,0,0,0), legend.box.margin=margin(-10,-10,-10,-10))
+ggsave('/data/swamyvs/ocular_transcriptomes_paper/testing/fig5.png', fp, height = 15, width = 13)
 
-
-#save(vp, dp, piu_fetret, gm_fetret, gghm, top, bottom,fp, full_des, bdes, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
-#     file =files$fetal_retina_diffexp_results )
+save(vp, dp, piu_fetret, gm_fetret, gghm, top, bottom,fp, full_des, bdes, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
+    file =files$fetal_retina_diffexp_results )
 
 
 
