@@ -414,10 +414,12 @@ fp
 ```
 
 ::: {custom-style="CustomCaption"}
-Figure 5 Differential Transcript usage during retinal development. A) Volcano plot of tested transcripts B) Dot plot for gene set enrichment analysis C) Heatmap of hiearchical clustering of transcripts with DTU associated with eye development D) Transcript models for *MYO9A*, a gene undergoing DTU E) FIU change in *MYO9A* FIU across development F) average log-transformed TPM expression of *MYO9A* across retinal development 
+Figure 5 Differential transcript usage (DTU) during retinal development. A) Volcano plot of tested transcripts B) Dot plot for gene set enrichment analysis of significant DTU genes C) Heatmap of hiearchical clustering of transcripts with DTU associated with eye development D) Transcript models for *LRP2*, a gene undergoing DTU (not drawn to scale). Novel exon shaded dark red. E) FIU change in *LRP2* FIU across development F) average log-transformed TPM expression of *LRP2* across retinal development 
 :::
 
-|              We analyzed `r toString(NUM_DEVRET_SAMPLES)` samples across `r toString(NUM_DEVRET_TIMESPOINTS)` developmental days post fertilization and found `r toString(NUM_DTU_TX)` transcripts across `r toString(NUM_DTU_GENE)` genes displaying DTU (Fig 5A). We found that genes involved in DTU are enriched(qvalue <.05) for genes related to eye and neurological development (Fig 5B), and that hierarchical clustering of DTU transcripts generates an early stage and late stage cluster (Fig 5C). One of these genes, *MYO9A*, is a classical example of DTU. *MYO9A* is associated with the visual perception GO term, plays a role in ocular development, and has been associated with ocular disease [@gorman_cloning_1999]. While expression of *MYO9A* remains relatively unchanged across development, expression of two of its associated isoforms in fetal retina (Fig 5D) changes dramatically during development: a novel isoform is highly expressed early during development, but switched to the canonical isoform later in development (Fig 5E,F). This novel isoform contains a novel exon within the protein coding region of the isoform as well as novel last exon extending the 3’ UTR (Fig 5d). A full list of genes and transcripts displaying  DTU is available in Supplemental Data (Supplemental Data 4).
+|              We analyzed `r toString(NUM_DEVRET_SAMPLES)` samples across `r toString(NUM_DEVRET_TIMESPOINTS)` developmental days post fertilization and found `r toString(NUM_DTU_TX)` transcripts across `r toString(NUM_DTU_GENE)` genes displaying DTU (Fig 5A). We found that genes involved in DTU are enriched(qvalue <.05) for genes related to eye and neurological development (Fig 5B), and that hierarchical clustering of DTU transcripts generates an early stage and late stage cluster (Fig 5C). One of these genes, *LRP2* , is a classical example of DTU. *LRP2* is associated with the postivie regulation of neurogenesis GO term and has been shown previously to play a role in retinal development. Its novel isoform contains a single novel exon (exon 43) within its protein coding region (Fig 5D). [@gorman_cloning_1999]. *LRP2* is actively expressed throughout development; expression of its cannonical isoform XXX remains relatviely unchanged across development, but its novel isoform DNTX_00142728 shows a significant (q < .05) change in gene expression across development, accoutnigng for nearlt half of total LRP2 expression at DNTX_00142728's peak expression.
+(Fig 5E,F). A full list of genes and transcripts displaying DTU during retinal development is available in Supplemental Data (Supplemental Data 4).
+|              To confirm our computational analyses, we experimentally validated the novel LRP2 isoform. As developing human retinal samples are difficult to obtain, we assayed LRP2 expression via PCR in human iPSCs and iPSC-dervived retinal organoids. As a control, we additionally assayed its expression in human fibroblasts. We designed primers targeting the novel exon in LRP2 as well primers targeting a cannonical exon of transcript. We confirm expression of both the novel and cannonical exons in retinal organoids, and see no expression of either exon in fibroblasts (Supplemental Figure 4)
 
 ## *De novo* transcriptomes allow for a more precise variant prioritization.
 
@@ -731,189 +733,13 @@ frac_rm_plot / map_rate_d_plot + plot_annotation(tag_levels = 'A')
 Supplemental Figure 3. Comparison of Salmon mapping rate change vs transcriptome size decrease. 
 :::
 
-
-```{r vep_prep }
-# pretty_subtissue <- function(st){
-#  bodyloc_pretty <- st
-#  bodyloc_pretty = str_replace_all(bodyloc_pretty, '_|\\.', ' (')
-#  bodyloc_pretty= str_remove_all(bodyloc_pretty, ' \\(Tissue')
-#  bodyloc_pretty = str_replace_all(bodyloc_pretty, '-', ' ')
-#  bodyloc_pretty =replace(bodyloc_pretty, st%in% eye_tissues,
-#                  paste0(bodyloc_pretty[ st%in% eye_tissues], ')') )
-#  return(bodyloc_pretty)
-# }
-# 
-# 
-# draw_all_transcripts_interactive_v3 <- function(gene, gtf, tissues,keep_tx, var_df){
-#   coldf <- inner_join(subtissue_to_bodyloc, tissue_color_mapping_df) %>% mutate(Subtissue = pretty_subtissue(subtissue))
-#   cl <- coldf$color
-#   names(cl) <- coldf$Subtissue
-#   gtf_gene <- filter(gtf, gene_name == gene, transcript_id %in% keep_tx)
-#   maxchar <- max(nchar(gtf_gene$transcript_id), nchar(gtf_gene$gene_name), 
-#          nchar(gtf_gene$oId %>% na.omit %>% . [grepl('ENST', .)] ))
-#   
-#   plot_data <- gtf_gene %>% filter( type == 'exon') %>% 
-#     mutate(`exon type`=ifelse(is.na(novel_exon_id), 'ref', 'novel')) %>% 
-#    left_join(var_df) %>% 
-#    left_join(ctab_plotting) %>%
-#    left_join(coldf) %>% 
-#    mutate(transcript_id = factor(transcript_id, levels = keep_tx))
-#   set.seed(234)
-#   intron_gaps <- tibble(Xmin=plot_data$Xmax[1:(nrow(plot_data) -1)], Xmax=plot_data$Xmin[2:(nrow(plot_data))]) %>% 
-#     distinct %>% 
-#     mutate(midpoint=rowMeans(.)) %>% 
-#     filter(midpoint >0) %>% sample_n(2)
-# 
-#   point_type = ifelse(plot_data$strand[1] == '+',62, 60)
-#   plot <- ggplot(data = plot_data) +
-#     geom_hline(yintercept = 0, colour='black', size=.5)+
-#     geom_point(data=intron_gaps, aes(x=midpoint),y=0,size=4, fill='black', shape=point_type)+
-#     geom_rect(aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=Subtissue))+
-#     #geom_rect( aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=`exon type`))+
-#     scale_fill_manual(values = cl) +
-#     geom_point(aes(x=var_x, y=var_y),fill = 'black', shape='*', size = 5)+
-#     facet_wrap(~transcript_id, ncol=1, strip.position = 'right')+
-#     #ggtitle(gene) +
-#     theme_void() 
-#     # theme(strip.text = element_text(angle = 180))
-#   return(plot)
-# }
-# vep_gms <- draw_all_transcripts_interactive_v3(gtf = pg_ctx, gene = "CACNA2D4", keep_tx = all_tx_cleanids, var_df = var_plot) 
-# 
-# cl <- c('Low' = 'lightblue', 'Moderate' = 'lightgreen', 'High' = 'red')
-# shp <- c('dntx'=16, 'gencode'=15)
-# k <- vep_plot_df %>% 
-#  filter(var_id %in% example_var_ids) %>% 
-#  filter(!as.character(subtissue) %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>% 
-#  left_join(subtissue_to_bodyloc) %>%
-#  mutate(body_location = replace_na(body_location, 'gencode'),
-#     body_location = factor(body_location, levels = c('gencode', eye_tissues, 'Body', 'Brain'))) %>%
-#  group_by(body_location, var_id, build) %>% 
-#  summarise(`avg log2(TPM + 1)` = mean(`log2(TPM + 1)`),
-#       `Variant Impact` = `Variant Impact`[which.max(max_impact)],
-#       highest_max_impact =max(max_impact)) %>% 
-#  arrange(body_location) %>% 
-#  mutate(bodyloc_pretty = as.character(body_location), 
-#     bodyloc_pretty = pretty_subtissue(bodyloc_pretty),
-#     bodyloc_pretty = factor(bodyloc_pretty, levels = bodyloc_pretty))
-#       
-# 
-# vep_pred <- ggplot(k, aes(x =var_id, y=bodyloc_pretty))+
-#  geom_point(aes(size = `avg log2(TPM + 1)`, color = `Variant Impact`, shape=build))+
-#  scale_color_manual(values = c('Low'='mediumpurple', 'Moderate'='green', 'High'='tomato'))+
-#  scale_shape_manual(values = shp)+
-#  geom_hline(yintercept = 1.5)+
-#  ylab('')+
-#  xlab('ClinVar Variation ID')+
-#  ggtitle('Tissue Specific Variant Prioritization') +
-#  cowplot::theme_cowplot() +
-#  coord_flip()+
-#  theme(axis.text.x.bottom = element_text(angle = 45, hjust = 1), panel.background = element_blank())
-
-```
-```{r vep, fig.width=12,fig.height=7}
-# vep_pred / vep_gms +plot_annotation(tag_levels = 'A')
-# ::: {custom-style="CustomCaption"}
-# Figure 5. Tissue specific variant prioritization of two variants of unknown significance (VUS) previously associated with ocular disease. A) Variant Impact dot plot. Size corresponds to average TPM of the transcript with the highest TPM and color to impact. A full mapping of variant descriptors to impact can be found in supplemental data. b) Transcript Models of CACNA2D4 thick lines represent CDS; Asterisk represents location of variant 631715. Arrows indicate direction of transcription
-# :::
-# 
-# We compared our tissue specific variant effect predictions to variant effect predictions generated using the gencode transcript annotation. We found that globally out of `r toString(NUM_TOTAL_VUS)` total variants examined, the priority of `r toString(NUM_IMPACT_DECREASE)` variants decreased in at least one tissue, and `r toString(NUM_IMPACT_INCREASE)` variants increased in at least one tissue. We see a larger amount of variants decrease in predicted effects as the transcript which previously lead to an effect is not expressed in a particular tissue. To demonstrate the utility of tissue specific variant prioitizaion, we focused specifically on variants previously associated with ocular disease. We examined ClinVar variant 631672, which was previously associated with retinal cone dystrophy 4, and has a high predicted impact only in ocular tissues, and not in other tissues. (Fig 5A) Variant 631672 is in the gene CACNA2D4 and in all transcripts expressed in ocular tissues this variant leads to a premature stop codon. While CACNA2D4 has other isoforms expressed in other tissues, these isoforms are not affected by variant 631672 and thus there is a higher probability that this variant may be playing a role in disease.(Fig 5B) Conversely, in clinvar variant 631715 which is associated with posterior column ataxia-retinitis pigmentosa syndrome and is within gene FLVCR2, the variant is low impact on transcripts expressed in eye tissues, but higher impact in other body tissues. This may suggest that this variant is less likely to be associated with the disease.
-```
-```{r, primary_isoforms_prep, eval=F}
-## *De novo* transcriptomes identify of the tissue specific primary isoform expressed in a tissue
-#    It is useful researchers to know which isoform of a gene is the most relevant to a particular biological system. The APPRIS project identified principal isoforms for humans, based on predicted function and evolutionary conservation, using multiple computational tools. Principal isoforms are considered the most phenotypically relevant isoforms of transcripts. We instead propose a tissue specific primary isoforms, defined as the highest expressed isoforms of a given gene in a given tissue. As primary isoforms are based on biological evidence via RNA-seq, we reason that it is more refined than APPRIS principal isoforms.
-# primary_isoforms_per_tissue <- primary_isoforms_per_tissue %>%
-#  mutate(primary_isoform_origin = gsub('dntx','DNTx', primary_isoform_origin),
-#     primary_isoform_origin = gsub('gencode', 'Gencode', primary_isoform_origin),
-#     primary_isoform_origin = gsub('appris', 'APPRIS', primary_isoform_origin)) %>% 
-#  mutate(primary_isoform_origin = factor(primary_isoform_origin, levels = c('DNTx', 'Gencode', 'APPRIS'))) %>% 
-#  inner_join(subtissue_to_bodyloc) %>%
-#  filter(!body_location %in% c('Lens_Stem.Cell.Line', 'ESC_Stem.Cell.Line')) %>%
-#  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-#     body_location_pretty=case_when(body_location == 'Body' ~ 'Body(mean)',
-#                     body_location == 'Brain'~ 'Brain(mean)' ,
-#                     TRUE ~ body_location)) %>% 
-#  mutate(body_location_pretty=gsub('_|\\.', ' ', body_location),
-#     body_location_pretty=gsub('avg','mean', body_location_pretty),
-#     body_location_pretty=gsub('Tissue','', body_location_pretty),
-#     body_location_pretty=gsub('\\(',' (', body_location_pretty),
-#     body_location_pretty=gsub('Adult','(Adult)', body_location_pretty),
-#     body_location_pretty=gsub('Fetal','(Fetal)', body_location_pretty)) %>% 
-#  group_by(body_location_pretty, primary_isoform_origin) %>%
-#  summarise(count = mean(count)) %>% 
-#  arrange()
-# ggplot(data = primary_isoforms_per_tissue, aes(x = body_location_pretty, y=count, fill = primary_isoform_origin))+
-#  geom_bar(position = 'fill', stat = 'identity')+
-#  geom_text(aes(label = as.integer(count) ), position = position_fill(vjust=.5)) +
-#  cowplot::theme_cowplot() +
-#  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
-#  scale_fill_brewer(palette = 'Set1', name = 'Origin') + ylab('Ratio') + xlab('')
-# 
-# ```
-# ```{r primary_isoforms, fig.width= 6, include=T}
-# ggplot(data = primary_isoforms_per_tissue, aes(x = body_location_pretty, y=count, fill = primary_isoform_origin))+
-#  geom_bar(position = 'fill', stat = 'identity')+
-#  geom_text(aes(label = as.integer(count) ), position = position_fill(vjust=.5)) +
-#  cowplot::theme_cowplot() +
-#  theme(axis.text.x=element_text(angle=45, hjust = 1), panel.background = element_blank()) +
-#  scale_fill_brewer(palette = 'Set1', name = 'Origin') + ylab('Ratio') + xlab('')
-# 
-# ::: {custom-style="CustomCaption"}
-# Figure 4. APPPRIS principal isoforms within the *de novo* transcriptome
-# :::
-# 
-#    {== We found that `r toString(NUM_APPRIS_RECOVERY_RATE)` of the APPRIS principal isoforms are also identified as the primary isoform in at least one tissue type. Within each tissue type, on average `r toString(NUM_AVG_APPRIS)` % of are an appris primary isoform, `r toString(NUM_AVG_NONAPPRIS_Gencode)` of transcripts were a previously annotated gencode transcript, `r toString(NUM_AVG_NOVEL)`
-# 
-# \% of principal isoforms are novel isoforms. ==}{>> need to fix these numbers <<}
-
-# {== We initially reconstructed `r toString(round(NUM_INITIAL_ANOO_TX/NUM_TOTAL_Gencode_TX*100), digits = 3)` % of the Gencode transcriptome, but after filtering we were left with `r toString(round(NUM_REF_TX_BODY/NUM_TOTAL_Gencode_TX*100), digits = 3)` %. This was expected as similar results are seen in the CHESS database with which we share some of our underlying data with. This suggests that some of the Gencode transcripts may not be relevant to every human organ system, and that the one size fits all strategy of having a single comprehensive annotation for all human tissues may not be the most optimal one.(still need to DO SOME LITERATURE SEARCH TO SEE IF THIS IS MENTIONED ANYWHERE. GTEx papers?). This is further supported by the minimal loss loss in gene expression data despite the large decrease in transcriptome size for each tissue. This reduction in total transcriptome sizes is also useful for other researchers as it creates a smaller search space to explore, ie it is easier to compare 30,000 transcripts than 300,000 ==}{>> Maybe cut this paragraph? <<}
-
-# ## Novel Loci in the ocular transcriptome
-# 
-# We determined the longest ORF’s for each novel loci, and for each transcript with a valid ORF, predicted the function the encoded protein using hmmer searching within the pfam databse, and blastp searching within the swissprot database. We chose to hmmer results that had a sequence match e-value < 1e-4, and blastp results with e-value < 1e-15 (Sup Table). We found XXX distinct potentially novel coding loci from blast and hmmer combined. We highlight one detected in fetal RPE
-# library(patchwork)
-# 
-# cov <- ggplot(cov_df, aes(x=coord,y=cov, group = sample))+
-#  geom_line( alpha = .3)+
-#  geom_area(alpha = .3)+
-#  #ggtitle(paste(txid, s_st))+
-#  theme(axis.title.x = element_blank(), panel.background = element_blank(), 
-#     axis.text.x = element_blank(), axis.ticks.x = element_blank())
-# pt <- ifelse(gene_model_df$strand[1] == '+',62, 60)
-# model <- ggplot(gene_model_df)+
-#  geom_rect(aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax))+
-#  geom_rect(xmin=min(gene_model_df$xmin), xmax=max(gene_model_df$xmax), ymin=-.1, ymax=.1)+
-#  geom_point(data=point_df, aes(x = x, y=y), shape= pt, size = 5)+
-#  xlab('genome') +
-#  ylab(element_blank())+
-#  theme(panel.background = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
-# layout <- '
-# AA
-# AA
-# AA
-# AA
-# AA
-# AA
-# BB
-# CC
-# CC
-# '
-# mss <- as_ggplot(rasterGrob(readPNG('clean_data/plots/msa_ex.png'), interpolate = T))
-# cov/model/mss + plot_layout(design = layout) +plot_annotation(tag_levels = 'A')
-# 
-# ::: {custom-style="CustomCaption"}
-# Figure 6. DNTX000dddd, potentially protein coding novel isoform in Fetal RPE. A) RNA-seq coverage of exons across 49 samples. B transcript model of DNTX000ddd. thick regions represtn coding region. C. Multiple sequence alignment of DNTX000ddd and closely related proteins.
-# :::
-# 
-# Placeholder figure, still trying to find the right transcript to look at here.
-
-
-#### Discussion overFlow
-
-#We see many more distinct transcripts in the long-read data than in the short were not corroborated in our short-read based transcriptomes. This low concordance could be to technical error arising from the ability of StringTie to accurately build transcripts. However, This low concordance could simply be transcriptional noise, as others have suggested. An approach that uses many long-read based transcriptomes across many samples would help to disentangle what is noise and what is signal; at this time this would be prohibitively expensive as long-read RNA-seq is approximately five to ten times the cost of short-read RNA-seq.
-
+```{r, echo = F}
+knitr::include_graphics('clean_data/plots/LRP2_PCR.png')
 ```
 
+::: {custom-style="CustomCaption"}
+Supplemental Figure 4. PCR gel of LRP2 novel exon 43 and cannoical exon 2:3 
+:::
 
 
 # References
