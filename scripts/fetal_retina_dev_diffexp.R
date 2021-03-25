@@ -11,7 +11,7 @@ library(ComplexHeatmap)
 library(yaml)
 library(scattermore)
 
-source('~/scripts/read_salmon.R')
+source('scripts/read_salmon.R')
 
 args <- commandArgs(trailingOnly = T)
 # files_yaml <- '/data/swamyvs/ocular_transcriptomes_paper/files.yaml'
