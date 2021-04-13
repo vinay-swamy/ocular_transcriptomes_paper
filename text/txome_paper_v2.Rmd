@@ -101,7 +101,9 @@ body_tissues <- sample_table %>% filter(!subtissue%in% eye_tissues) %>% pull(sub
 
 # Results
 
-![](../clean_data/plots/DNTX_flowchar_rework_final.png)
+```{r, echo = F, include=T}
+knitr::include_graphics('/data/swamyvs/ocular_transcriptomes_paper/clean_data/plots/DNTX_flowchar_rework_final.png')
+```
 
 ::: {custom-style="CustomCaption"}
 Figure 1. Workflow for long-read informed *de novo* transcriptome construction and analysis
@@ -733,8 +735,8 @@ frac_rm_plot / map_rate_d_plot + plot_annotation(tag_levels = 'A')
 Supplemental Figure 3. Comparison of Salmon mapping rate change vs transcriptome size decrease. 
 :::
 
-```{r, echo = F}
-knitr::include_graphics('clean_data/plots/LRP2_PCR.png')
+```{r, echo = F, include=T}
+knitr::include_graphics('/data/swamyvs/ocular_transcriptomes_paper/clean_data/plots/LRP2_PCR.png')
 ```
 
 ::: {custom-style="CustomCaption"}
