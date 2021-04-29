@@ -11,6 +11,7 @@ library(ComplexHeatmap)
 library(yaml)
 library(scattermore)
 
+
 source('scripts/read_salmon.R')
 
 args <- commandArgs(trailingOnly = T)
@@ -252,7 +253,7 @@ vp <- ggplot(vp_data) +
 
 
 write(all_dtu_genes, '/tmp/sdfsdfg3', sep = '\n')
-system2('Rscript', args = 'scripts/enrichGO.R /tmp/sdfsdfg3  /tmp/gse3') # in repo/scripts/
+system2('/usr/local/bin/Rscript', args = 'scripts/enrichGO.R /tmp/sdfsdfg3  /tmp/gse3') # in repo/scripts/
 gse <- readRDS('/tmp/gse3')
 
 sz <- 15
@@ -390,14 +391,27 @@ ha <- HeatmapAnnotation(`Photoreceptor\nDevelopment` = pr_gene_table_long$`photo
                         annotation_legend_param = list(title = '', grid_height = unit(8, "mm"),labels_gp = gpar(fontsize = 10)), 
                         show_annotation_name = F)
 
+ha_col <- HeatmapAnnotation(`Photoreceptor\nDevelopment` = pr_gene_table_long$`photoreceptor\ndevelopment`,
+                        `Eye\nDevelopment` = pr_gene_table_long$`eye\ndevelopment` , 
+                        `Visual\nPerception` = pr_gene_table_long$`visual\nperception`,
+                        `Isoform\nOrigin` = pr_gene_table_long$transcipt_origin,
+                        col=col,na_col = 'white',
+                        simple_anno_size = unit(.20, "cm"),
+                        which = 'column',
+                        annotation_legend_param = list(title = '', grid_height = unit(8, "mm"),labels_gp = gpar(fontsize = 10)), 
+                        show_annotation_name = F)
+
 #save.image('testing/frdd.Rdata')
 
 
 heatmap_fe <- Heatmap(dtu_mat, col=cf, show_row_dend = F, show_row_names = F,cluster_columns = T , cluster_rows = T,
               name = 'FIU', right_annotation = ha, column_names_gp = gpar(fontsize=10) )
 
-gghm <- as.ggplot(heatmap_fe)
+heatmap_rot <- Heatmap(t(dtu_mat), col=cf, show_column_dend =  F, show_column_names =  F,cluster_columns = T , cluster_rows = T,
+                      name = 'FIU', top_annotation = ha_col, row_names_gp =  gpar(fontsize=10),  )
 
+gghm <- as.ggplot(heatmap_fe)
+gghm_transpose <- as.ggplot(heatmap_rot)
 
 custom_filter_df <- function(df){
     df <- df %>% select(-gene_name) %>% 
@@ -488,6 +502,73 @@ plot_piu_bar <- function(gene,white_list, black_list=''){
     p <- piu_plot / ab_plot +plot_annotation(tag_level = 'A') #+plot_layout(guides = 'collect')
     p
     return(p)
+    
+}
+
+plot_piu_bar_listout <- function(gene,white_list, black_list=''){
+    
+    #tx_piu_filter <- tx_piu %>% inner_join(t2g,.) %>%  filter(gene_name == gene) %>% 
+    #group_by(gene_name) %>% do(custom_filter_df (.))
+    piu <- tx_piu %>% 
+        inner_join(t2g,.) %>%  
+        filter(gene_name == gene, 
+               transcript_id %in% white_list,
+        ) %>% 
+        select(-gene_name) %>% 
+        gather(key = 'sample', value = 'piu', -transcript_id) %>% 
+        inner_join(dev_retina_core_tight %>% select(sample, age_str, age_num)) %>% 
+        group_by(transcript_id, age_str, age_num) %>% 
+        summarise(avg_piu = mean(piu)) %>% 
+        ungroup %>% 
+        inner_join(tx_labdf) %>% 
+        left_join(refid2dntx)  %>% 
+        filter(!transcript_id %in% black_list) %>% 
+        arrange(age_num) %>% 
+        mutate(age_fac = factor(age_str, levels = unique(age_str)))
+    #%>% 
+    #left_join(dev_retina_core_tight %>% select(-sample) %>% distinct)
+    
+    
+    #tx_labdf %>% left_join(dntx2ref) %>% mutate(new=replace(transcript_id))
+    tx_ab <- tx_abundance_normed %>% 
+        inner_join(t2g,.) %>%  filter(gene_name == gene) %>% select(-gene_name) %>% 
+        filter(transcript_id %in% piu$transcript_id) %>%
+        gather(key = 'sample', value = 'ab', -transcript_id) %>% 
+        inner_join(dev_retina_core_tight %>% select(sample, age_str, age_num)) %>% 
+        group_by(transcript_id, age_str, age_num) %>% summarise(avg_ab = mean(ab)) %>% 
+        arrange(age_num) %>% 
+        left_join(refid2dntx) 
+    ab <- gene_abundance_normed %>% filter(gene_name == gene) %>% select(-transcript_id) %>% 
+        distinct %>% 
+        gather(key = 'sample', value = 'ab', -gene_name) %>% 
+        inner_join(dev_retina_core_tight %>% select(sample, age_str, age_num)) %>% 
+        group_by(gene_name, age_str, age_num) %>% 
+        summarise(avg_ab = mean(ab)) %>% 
+        ungroup %>%
+        rename(pretty_txid = gene_name) %>% 
+        bind_rows(tx_ab) %>% 
+        filter(!transcript_id %in% black_list) %>% 
+        mutate(ab=log2(avg_ab+1)) %>% 
+        arrange(age_num) %>% 
+        mutate(age_fac = factor(age_str, levels = unique(age_str)))
+    color_list <- c('red','blue', 'green', 'purple')
+    names(color_list) <- unique(ab$pretty_txid) %>% {c(.[. == gene], .[grepl('ENST',.)], .[grepl('DNTX',.)] )}
+    
+    piu_plot <- ggplot(piu %>% rename(`Transcript ID` = pretty_txid) )+
+        geom_col(aes(x=age_fac, y=avg_piu, fill = `Transcript ID`), position = 'dodge')+
+        scale_fill_manual(values = color_list)+
+        xlab('Days Post Fertilization')+
+        ylab('fraction of total\ngene expression')+
+        cowplot::theme_cowplot() +
+        theme(legend.position = c(1,1))
+    ab_plot <- ggplot(ab %>% rename(`Transcript ID` = pretty_txid) )+
+        geom_line(aes(x = age_fac, y=ab, group = `Transcript ID`, color =`Transcript ID`)) +
+        scale_color_manual(values = color_list)+
+        xlab('Days Post Fertilization')+
+        ylab('log2(TPM+1)') +
+        cowplot::theme_cowplot() +
+        theme(legend.title = element_blank())
+    return(list(ab=ab_plot, piu = piu_plot))
     
 }
 
@@ -644,9 +725,14 @@ draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
     plot_data$duptxid <- plot_data$transcript_id
     m <- replace_na(plot_data$novel_exon_id == 'nvl_exon120703', F)
     plot_data[m, 'duptxid'] = 'nvl_exon120703'
+    arrow_data <- plot_data %>% filter(duptxid == 'nvl_exon120703') %>% select(Xmin,Xmax, duptxid,transcript_id) %>% 
+        mutate(x=mean(c(Xmin, Xmax)), y=1.5)
     plot <- ggplot(data = plot_data) +
         geom_rect( aes(xmin=Xmin, xmax=Xmax, ymin=Ymin, ymax=Ymax,fill=duptxid))+
         scale_fill_manual(values = color_list) +
+        geom_segment(data = arrow_data, aes(x=x, xend=x),y=2, yend=1,size=.5, arrow=arrow(length = unit(0.1, "npc")))+
+        geom_text(data = arrow_data,aes(x=x+1), y=1.8, label='Novel Exon', size =4, hjust = 'left')+
+        ylim(c(-1, 2))+
         facet_wrap(~transcript_id, ncol=1)+
         ggtitle(gene)+
         theme_void() +
@@ -678,7 +764,29 @@ fp <- top/bottom +
     theme(legend.margin = margin(0,0,0,0), legend.box.margin=margin(-10,-10,-10,-10))
 ggsave('/data/swamyvs/ocular_transcriptomes_paper/testing/fig5.png', fp, height = 15, width = 13)
 
-save(vp, dp, piu_fetret, gm_fetret, gghm, top, bottom,fp, full_des, bdes, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
+
+br_des <-'
+AA
+AA
+AA
+BB
+CD
+CD
+CD'
+piu_fetret_list <- plot_piu_bar_listout(t_gene,white_list =c('DNTX_00142728','DNTX_00140848' ),  black_list = 'DNTX_00080651')
+ab_line <-  piu_fetret_list$ab
+piu_bar <- piu_fetret_list$piu
+
+
+bottom_rework <- gghm_transpose + gm_fetret + piu_bar + ab_line +plot_layout(design = br_des, guides = 'collect')
+fp_rw <- top/bottom_rework + 
+    plot_layout(design = full_des) +
+    plot_annotation(tag_levels = 'A') &  
+    theme(legend.margin = margin(0,0,0,0), legend.box.margin=margin(-10,-10,-10,-10))
+
+ggsave('/data/swamyvs/ocular_transcriptomes_paper/testing/fig5_rq.png', fp_rw, height = 15, width = 13)
+
+save(vp, dp, ab_line, piu_bar, gm_fetret, gghm_transpose, top, bottom_rework,fp_rw, full_des, br_des, t_gene, dev_retina_core_tight, all_dtu_genes, all_dtu_tx,
     file =files$fetal_retina_diffexp_results )
 
 
