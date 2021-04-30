@@ -742,28 +742,16 @@ draw_all_transcripts_csm <- function(gene, gtf, keep_tx, g, black_list, sf){
     
 }
 gm_fetret <- draw_all_transcripts_csm(t_gene,s_gtf, pretty_keep_tx, 1, black_list = 'DNTX_00080651', sf=1)
-####
-bdes <- '
-AB
-AC
-AC
-AC
-AC
-AC
-AC'
-bottom <- gghm  +gm_fetret + piu_fetret +plot_layout(design = bdes)
+piu_fetret_list <- plot_piu_bar_listout(t_gene,white_list =c('DNTX_00142728','DNTX_00140848' ),  black_list = 'DNTX_00080651')
+#####
 
-top <- vp |dp
+
+ab_line <-  piu_fetret_list$ab
+piu_bar <- piu_fetret_list$piu
 full_des <-'
 AAA
 BBB
 BBB'
-fp <- top/bottom + 
-    plot_layout(design = full_des) +
-    plot_annotation(tag_levels = 'A') &  
-    theme(legend.margin = margin(0,0,0,0), legend.box.margin=margin(-10,-10,-10,-10))
-ggsave('/data/swamyvs/ocular_transcriptomes_paper/testing/fig5.png', fp, height = 15, width = 13)
-
 
 br_des <-'
 AA
@@ -773,12 +761,10 @@ BB
 CD
 CD
 CD'
-piu_fetret_list <- plot_piu_bar_listout(t_gene,white_list =c('DNTX_00142728','DNTX_00140848' ),  black_list = 'DNTX_00080651')
-ab_line <-  piu_fetret_list$ab
-piu_bar <- piu_fetret_list$piu
 
 
 bottom_rework <- gghm_transpose + gm_fetret + piu_bar + ab_line +plot_layout(design = br_des, guides = 'collect')
+top <- vp |dp
 fp_rw <- top/bottom_rework + 
     plot_layout(design = full_des) +
     plot_annotation(tag_levels = 'A') &  
